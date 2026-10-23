@@ -14,6 +14,7 @@ Site statique : du HTML, du CSS et du JavaScript, sans outil de build ni serveur
 ## Ce que le site permet
 
 - **Six étapes** : identité, apparence, personnalité, histoire, relations, fiche finale. Les champs sont regroupés par blocs, les options facultatives sont repliées dans « Plus de détails », les longues listes de choix montrent les 12 premiers puis le reste à la demande, et les boutons Précédent et Suivant restent visibles en bas.
+- **Décrire le personnage en une phrase** : au début de l'étape Identité, une case permet d'écrire ce qu'on imagine (« une infirmière de 34 ans à Chicago, rousse, sarcastique »). Le site crée une fiche qui correspond, complète le reste au hasard sans contredire la phrase, montre ce qu'il a compris et garde la phrase dans les notes.
 - **Tirage au sort** par champ, par étape ou pour tout le personnage, avec un cadenas pour garder un champ.
 - **Genre** : Homme ou Femme. Les accords suivent le genre, dans les listes comme dans les textes tirés au sort.
 - **Image du personnage** : chaque personne met l'image de son choix (photo, image générée ailleurs avec une IA, dessin), la cadre dans le portrait en la faisant glisser et en zoomant, puis l'enregistre. Sans image, la fiche affiche une silhouette.
@@ -48,6 +49,7 @@ Dans l'étape **Apparence**, le bloc « Image du personnage » permet d'ajouter 
 | `style.css` | Styles, thème clair et sombre |
 | `data.js` | Listes de noms, métiers, traits, textes de tirage |
 | `photo.js` | Image du personnage : lecture, cadrage et enregistrement |
+| `describe.js` | Analyse de la description libre (mots-clés, synonymes, tournures de phrase) |
 | `app.js` | Champs, étapes, tirages, stockage, exports |
 
 Pour ajouter des métiers, des traits ou des phrases de tirage, il suffit de modifier `data.js`.
@@ -72,7 +74,17 @@ puis ouvre <http://localhost:8765>.
 5. Après une minute environ, le site est en ligne à l'adresse `https://<ton-compte>.github.io/ligne-de-vie/`.
 
 Les liens de partage utilisent l'adresse de la page : ils fonctionnent donc une fois le site publié.
-Quand tu modifies les fichiers, change le numéro dans `?v=9` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
+Quand tu modifies les fichiers, change le numéro dans `?v=14` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
+
+## Description libre : ce qu'elle comprend
+
+L'analyse n'est pas une IA : elle repère des mots-clés et des tournures de phrase, en français, dans le navigateur. Elle reconnaît notamment :
+- **Identité** : prénom et nom (« elle s'appelle Emma Carter »), genre, âge (« 34 ans », « une quarantaine »), origines, ville ou État américain, métier et synonymes, situation, logement.
+- **Apparence** : couleur et coupe des cheveux, yeux, teint, barbe, lunettes, taches de rousseur, taille (`1m90`, `5'10"`), corpulence, style, signe distinctif (cicatrice, tatouage).
+- **Caractère** : traits, qualités, défauts, peurs, loisirs, ce que le personnage veut, un secret, un événement marquant.
+- **Relations** : « sa sœur Lily », « son meilleur ami Jake ».
+
+Ce qui n'est pas reconnu n'est pas perdu : toute la phrase est copiée dans « Notes libres ». Pour enrichir le vocabulaire, il suffit d'ajouter des mots dans `describe.js`.
 
 ## Limites actuelles
 

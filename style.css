@@ -362,3 +362,16 @@ dialog::backdrop { background: rgba(10, 14, 25, .55); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- décrire le personnage ---------- */
+.describe { padding: 0; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.describe summary { display: flex; align-items: center; gap: 10px; padding: 16px 20px; cursor: pointer; list-style: none; font: 700 16px/1.2 var(--f-display); }
+.describe summary::-webkit-details-marker { display: none; }
+.describe summary svg { color: var(--accent); }
+.describe summary::after { content: "+"; margin-left: auto; font: 400 20px/1 var(--f-body); color: var(--muted); }
+.describe[open] summary::after { content: "–"; }
+.describe[open] summary { border-bottom: 1px solid var(--border); }
+.describe-body { display: grid; gap: 14px; padding: 20px; }
+.describe-body .btnrow .hint { margin-left: 4px; }
+.desc-result { display: grid; gap: 10px; padding-top: 4px; font-size: 14px; }
+.desc-result p { color: var(--ink); }

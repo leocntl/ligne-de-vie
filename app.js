@@ -6,6 +6,7 @@
   const D = window.LDV;
   const A = D; // choix de traits physiques (peau, cheveux, yeux...), définis dans data.js
   const P = window.LDV_PHOTO;
+  const DS = window.LDV_DESCRIBE;
   const KEY = 'ligne-de-vie.v1';
 
   /* ---------- petits outils ---------- */
@@ -267,7 +268,7 @@
   let store = { cur: null, order: [], chars: {} };
   let storageOK = true;
   // ph : image en cours de cadrage (élément image, taille, zoom, décalage) pour le personnage cid
-  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
+  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, descText: '', desc: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
   const C = () => store.chars[store.cur];
 
   function loadStore() {
@@ -530,6 +531,61 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
 <div class="box"><h3>Ajouter un personnage</h3><div class="btnrow"><button type="button" class="btn" data-act="openImport">${ICON.up} Importer une fiche</button><button type="button" class="btn" data-act="newBlank">${ICON.plus} Fiche vierge</button></div></div>
 </div></div>`;
   }
+  /* ---------- décrire le personnage en une phrase ---------- */
+  const DESC_EXAMPLES = [
+    ['Infirmière à Chicago', 'Une infirmière de 34 ans à Chicago, rousse aux yeux verts, sarcastique, avec une cicatrice sur la main'],
+    ['Ancien militaire au Texas', 'Un ancien militaire de 45 ans, barbu, taciturne, mécanicien au Texas. Il veut ouvrir son propre garage'],
+    ['Étudiante à Los Angeles', 'Étudiante en droit de 22 ans, latino, ambitieuse, lunettes rondes, vit en colocation à Los Angeles']
+  ];
+  const isUntouched = c => ORDER.every(k => !hasValue(c, k)) && !c.photo.src;
+  function descHTML(c) {
+    const res = ui.desc && ui.desc.cid === c.id ? ui.desc : null;
+    const open = ui.more.describe === undefined ? (c.example || isUntouched(c) || !!res) : ui.more.describe;
+    const n = res ? res.found.length : 0;
+    const result = !res ? '' : n
+      ? `<div class="desc-result"><p><b>${n} élément${n > 1 ? 's' : ''} compris.</b> Le reste est complété au hasard, et ta phrase est gardée dans « Notes libres ».</p><ul class="idc-chips">${res.found.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`
+      : '<div class="desc-result"><p><b>Rien de reconnu.</b> Ajoute l\'âge, le métier, la ville, l\'apparence ou le caractère.</p></div>';
+    return `<details class="group describe" data-more="describe"${open ? ' open' : ''}><summary>${ICON.spark}<span>Décrire le personnage que tu imagines</span></summary>
+<div class="describe-body"><textarea class="in" id="descText" rows="3" maxlength="800" placeholder="Ex. : une infirmière de 34 ans à Chicago, rousse, sarcastique, avec une cicatrice sur la main">${esc(ui.descText)}</textarea>
+<div class="btnrow"><button type="button" class="btn primary" data-act="descApply">${ICON.spark} Créer le personnage</button><span class="hint">ou essaie :</span>${DESC_EXAMPLES.map((x, i) => `<button type="button" class="chip" data-act="descEx" data-i="${i}">${esc(x[0])}</button>`).join('')}</div>${result}</div></details>`;
+  }
+  function describeApply() {
+    const text = ui.descText.trim();
+    if (!text) { toast('Écris d\'abord une description.'); const t = $('#descText'); if (t) t.focus(); return; }
+    let r;
+    try { r = DS.parse(text, D); } catch (e) { r = { v: {}, rel: [], found: [] }; }
+    const cur = C(), reuse = cur.example || isUntouched(cur), n = blank();
+    Object.assign(n.v, r.v);
+    n.rel = r.rel.slice();
+    // un âge cohérent avec le métier annoncé quand la phrase n'en donne pas
+    if (!n.v.age && n.v.metier) {
+      if (/^(?:Étudiant|Alternant)/.test(n.v.metier)) n.v.age = rint(18, 24);
+      else if (/^Retrait/.test(n.v.metier)) n.v.age = rint(63, 82);
+    }
+    // origines non précisées : on les déduit de l'apparence décrite plutôt que de tirer une origine incohérente
+    if (!n.v.origine) {
+      const hair = n.v.av_cheveux, eyes = n.v.av_yeux, skin = n.v.av_peau;
+      if (skin >= 6) n.v.origine = 'Afro-américaines';
+      else if (hair === 6) n.v.origine = Math.random() < 0.4 ? 'Irlandaises' : 'Européennes';
+      else if (hair === 4 || hair === 5 || eyes === 3 || eyes === 4) n.v.origine = 'Européennes';
+      else if (skin === 0) n.v.origine = 'Européennes';
+    }
+    // les champs compris sont verrouillés le temps de tirer le reste au sort, pour ne jamais les contredire
+    Object.keys(r.v).forEach(k => { if (F[k] && F[k].gen && k.indexOf('av_') !== 0) n.locks[k] = true; });
+    if (n.rel.length) n.locks.rel = true;
+    genKeys(n, ORDER);
+    Object.keys(r.v).forEach(k => { if (k.indexOf('av_') === 0) n.v[k] = r.v[k]; });
+    n.v.notes = ('Description de départ : ' + text).slice(0, 1500);
+    // dernière vérification : longueurs et types de chaque champ, comme pour un import
+    const fin = clean({ v: n.v, rel: n.rel });
+    fin.example = false; fin.updated = Date.now();
+    if (reuse) { fin.id = cur.id; fin.created = cur.created; store.chars[cur.id] = fin; ui.step = 0; } else addChar(fin);
+    ui.desc = { cid: fin.id, found: r.found.slice() };
+    renderAll(); scheduleSave();
+    $('#line').scrollIntoView({ block: 'start' });
+    toast(r.found.length ? 'Personnage créé à partir de ta description.' : 'Personnage tiré au sort : rien n\'a été reconnu.');
+  }
+
   const hasValue = (c, k) => {
     const d = F[k];
     if (d.t === 'rel') return c.rel.length > 0;
@@ -552,7 +608,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     let body;
     if (s.id === 'fiche') body = ficheHTML(c);
     else {
-      body = `<div class="groups">${s.groups.map(g => groupHTML(g, c, s)).join('')}</div>`;
+      body = (s.id === 'identite' ? descHTML(c) : '') + `<div class="groups">${s.groups.map(g => groupHTML(g, c, s)).join('')}</div>`;
       if (s.id === 'identite') body += `<datalist id="dl-villes">${D.VILLES.map(x => `<option value="${esc(x)}">`).join('')}</datalist><datalist id="dl-metiers">${D.METIERS.map(x => `<option value="${esc(disp(x, form(c)))}">`).join('')}</datalist>`;
       if (s.id === 'histoire') body += claudeHTML();
     }
@@ -823,6 +879,8 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       case 'dlPortrait':
         if (c.photo.src) fetch(c.photo.src).then(r => r.blob()).then(b => saveFile(slug(sheet(c).name) + '-portrait.jpg', b, 'image/jpeg'));
         break;
+      case 'descApply': describeApply(); break;
+      case 'descEx': { const ex = DESC_EXAMPLES[Number(b.dataset.i)]; if (ex) { ui.descText = ex[1]; const t = $('#descText'); if (t) { t.value = ex[1]; t.focus(); } } break; }
       case 'expand': ui.exp[key] = !ui.exp[key]; refreshField(key); break;
       case 'phPick': { const f = $('#phFile'); if (f) f.click(); break; }
       case 'phUse':
@@ -852,6 +910,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       if (r) { r[t.dataset.rel] = t.value; c.updated = Date.now(); afterChange('rel'); }
       return;
     }
+    if (t.id === 'descText') { ui.descText = t.value; return; }
     if (t.id === 'phZoom') { ui.ph.zoom = clamp(Number(t.value) || 1, 1, 3); phLayout(); return; }
     const key = t.dataset.key;
     if (!key || t.dataset.custom || !F[key]) return;
@@ -922,6 +981,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
   document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.more) ui.more[d.dataset.more] = d.open; }, true);
   document.addEventListener('keydown', e => {
     const t = e.target;
+    if (t.id === 'descText' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); describeApply(); return; }
     if (t.id === 'phView' && t.classList.contains('editing')) {
       const step = 0.02, k = e.key;
       if (k === 'ArrowLeft') ui.ph.fx -= step; else if (k === 'ArrowRight') ui.ph.fx += step;
