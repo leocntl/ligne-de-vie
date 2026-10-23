@@ -256,16 +256,23 @@ window.LDV = {
     return /\(Los Santos\)/.test(v) ? 'ls' : /\(Blaine County\)/.test(v) ? 'bc' : 'other';
   };
   // métiers GTA qui ont du sens à l'endroit où vit le personnage (la police de Los Santos reste à Los Santos...)
-  D.metiersGta = function (ville) {
+  D.jobFits = function (j, ville) {
+    if (!ville) return true;
     const z = D.zoneOf(ville);
-    return D.METIERS_GTA.filter(j => {
-      const place = /Sandy Shores|Paleto Bay|Grapeseed/.exec(j);
-      if (place) return String(ville).indexOf(place[0]) >= 0;
-      if (/BCSO|Blaine/.test(j)) return z === 'bc';
-      if (/LSPD|EMS|LSFD|Pillbox|Los Santos|Vinewood|Weazel|Downtown Cab|Bahama|Premium Deluxe|raffinerie|Non-Stop/.test(j)) return z === 'ls';
-      if (/Up-n-Atom|Pizza This|Herr Kutz|Blazing|PostOP|Gruppe Sechs|Highway Patrol|supérette/.test(j)) return z !== 'other';
-      return true;
-    });
+    const place = /Sandy Shores|Paleto Bay|Grapeseed/.exec(j);
+    if (place) return String(ville).indexOf(place[0]) >= 0;
+    if (/BCSO|Blaine|route 68/.test(j)) return z === 'bc';
+    if (/LSPD|EMS|LSFD|Pillbox|Los Santos|Vinewood|Weazel|Downtown Cab|Bahama|Premium Deluxe|raffinerie|Non-Stop|Vespucci|Del Perro/.test(j)) return z === 'ls';
+    if (/Up-n-Atom|Pizza This|Herr Kutz|Blazing|PostOP|Gruppe Sechs|Highway Patrol|supérette/.test(j)) return z !== 'other';
+    return true;
+  };
+  D.metiersGta = function (ville) { return D.METIERS_GTA.filter(j => D.jobFits(j, ville)); };
+  // une idée qui cite un quartier ou une ville de l'univers n'est proposée qu'aux personnages qui y vivent
+  D.placeFits = function (raw, ville) {
+    if (!ville) return true;
+    const names = D.VILLES_GTA.map(D.cityName).concat(['Los Santos', 'Blaine County', 'Vice City', 'Liberty City']);
+    const found = names.filter(n => String(raw).indexOf(n) >= 0);
+    return !found.length || found.some(n => String(ville).indexOf(n) >= 0);
   };
   D.etudiantsGta = function (ville) { return D.zoneOf(ville) === 'ls' ? D.METIERS_ETUDIANTS_GTA : D.METIERS_ETUDIANTS; };
   // métiers qui demandent des années d'études ou d'ancienneté

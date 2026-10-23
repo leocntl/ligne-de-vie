@@ -37,6 +37,7 @@
       trash: s('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
       plus: s('<path d="M12 5v14M5 12h14"/>'),
       minus: s('<path d="M5 12h14"/>'),
+      bulb: s('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.500 10.900c.6.500 1 1.200 1 2.100h5c0-.9.4-1.600 1-2.100A6 6 0 0 0 12 3z"/>'),
       copy: s('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
       left: s('<path d="M15 6l-6 6 6 6"/>'),
       right: s('<path d="M9 6l6 6-6 6"/>'),
@@ -138,12 +139,92 @@
     ui.exIdx = null;
   }
 
+  /* ---------- banque d'idées originales ---------- */
+  // les listes de ideas.js : des idées neutres, plus celles propres à l'univers GTA (clé_gta)
+  const ipool = key => ((D.IDEES && D.IDEES[key]) || []).concat(W() === 'gta' && D.IDEES ? D.IDEES[key + '_gta'] || [] : []);
+  // champs libres qui proposent des idées, et nombre d'idées montrées
+  const IDEA_FIELDS = { surnom: 6, metier: 5, affiliation: 6, signes: 4, attitude: 4, motivation: 4, manies: 4, secret: 3, enfance: 3, parcours: 3, actuel: 3, accroches: 4, notes: 4, traits: 6, qualites: 6, defauts: 6, peurs: 6, loisirs: 6, style: 6, logement: 5, evenement: 5 };
+  const hasIdeas = key => key in IDEA_FIELDS && !!D.IDEES;
+  // surnoms : déduits de la fiche (métier, caractère, physique), puis une banque de surnoms
+  const NICK_JOB = [[/policier|lspd|bcso|sahp|adjoint|ranger/, ['Sarge', 'Badge', 'Deputy']], [/médecin|docteur|urgentiste/, ['Doc']], [/infirmi|ambulanci|ems/, ['Pulse', 'Nurse']], [/pompier|lsfd/, ['Smokey', 'Ladder']], [/mécani|garag|dépann/, ['Wrench', 'Grease']], [/avocat|droit|juriste/, ['Counsel', 'Objection']], [/cuisin|chef|diner|burger|pizza|restaur/, ['Chef', 'Sizzle']], [/journalist|weazel|paparazzi/, ['Scoop', 'Byline']], [/pêch|marin|bateau/, ['Cap', 'Reel']], [/chauffeur|taxi|routier|livreu|camionn/, ['Wheels', 'Mile']], [/pilote/, ['Maverick']], [/barman|bartender|barmaid/, ['Shaker']], [/tatou/, ['Ink']], [/étudiant/, ['Freshman', 'Prof']], [/retrait/, ['Pops', 'Vieux']], [/cascad|acteur|actrice/, ['Action', 'Take Two']]];
+  const NICK_TRAIT = [[/sarcast|ironi|pince/, 'Sunshine'], [/calme|flegma|stoïq/, 'Zen'], [/impuls|colér|bagarr/, 'Boom'], [/charm/, 'Smooth'], [/rêveu/, 'Cloud'], [/timide|discret/, 'Mouse'], [/blagu|espiègle/, 'Joker'], [/loyal|fidèle/, 'Ride-or-Die'], [/rusé|roublard/, 'Fox'], [/bavard/, 'Radio'], [/noctambule|insomni/, 'Owl']];
+  function nicknameIdeas(c) {
+    const v = c.v, mine = [];
+    const job = disp(v.metier, 'm').toLowerCase();
+    NICK_JOB.forEach(x => { if (x[0].test(job)) x[1].forEach(n => mine.push(n)); });
+    (v.traits || []).forEach(t => { const w = disp(t, 'm').toLowerCase(); NICK_TRAIT.forEach(x => { if (x[0].test(w)) mine.push(x[1]); }); });
+    if (v.av_cheveux === 6) mine.push('Red', 'Ginger');
+    if (v.av_cheveux === 7 || v.av_cheveux === 8) mine.push('Silver');
+    if (v.av_lunettes && v.av_lunettes !== 'non') mine.push('Four Eyes');
+    if (v.av_pilo === 'barbe') mine.push('Bear');
+    if (v.av_coupe === 'chauve') mine.push('Cue Ball');
+    if (v.av_taches === 'oui') mine.push('Freckles');
+    if (v.taille > 188) mine.push('Tiny'); else if (v.taille && v.taille < 162) mine.push('Shorty');
+    return { mine: Array.from(new Set(mine)), pool: ipool('surnom') };
+  }
+  function ideaPoolFor(key, c) {
+    const d = F[key], ville = c.v.ville || '';
+    if (d.t === 'area') return ipool(key).map(t => (key === 'accroches' ? '• ' : '') + fill(t, c));
+    // les idées liées à un lieu ou à un métier local ne vont qu'aux personnages concernés
+    if (key === 'metier') return ipool(key).filter(j => D.jobFits(j, ville));
+    if (key === 'logement' || key === 'affiliation' || key === 'loisirs' || key === 'evenement' || key === 'style') return ipool(key).filter(x => D.placeFits(x, ville));
+    return ipool(key);
+  }
+  // tire n idées neuves : celles déjà présentes dans le champ et celles déjà montrées sont écartées tant qu'il en reste
+  function makeIdeas(key, c, avoid) {
+    const cur = c.v[key], n = IDEA_FIELDS[key];
+    const has = x => (Array.isArray(cur) ? cur.indexOf(x) >= 0 : typeof cur === 'string' && cur !== '' && cur.indexOf(x) >= 0);
+    const fresh = list => { const l = list.filter(x => !has(x)), f = l.filter(x => avoid.indexOf(x) < 0); return f.length ? f : l; };
+    let items;
+    if (key === 'surnom') {
+      const nk = nicknameIdeas(c), mine = pickN(nk.mine.filter(x => !has(x) && avoid.indexOf(x) < 0), 3);
+      items = mine.concat(pickN(fresh(nk.pool).filter(x => mine.indexOf(x) < 0), n - mine.length));
+    } else {
+      const all = ideaPoolFor(key, c).filter(x => !has(x)), unseen = all.filter(x => avoid.indexOf(x) < 0);
+      if (unseen.length < n) avoid.length = 0;
+      items = pickN(unseen.length >= n ? unseen : all, n);
+    }
+    items.forEach(x => avoid.push(x));
+    return { items, avoid };
+  }
+  function useIdea(key, i) {
+    const c = C(), d = F[key], st = ui.ideas[key];
+    const item = st && st.items[i];
+    if (item == null) return;
+    if (d.t === 'multi') {
+      const a = (c.v[key] || []).slice();
+      if (a.indexOf(item) < 0) {
+        if (a.length >= d.max) { toast('Maximum ' + d.max + ' choix : retires-en un d\'abord.'); return; }
+        a.push(item);
+      }
+      c.v[key] = a;
+      st.items.splice(i, 1, ...makeIdeas(key, c, st.avoid).items.slice(0, 1));
+    } else {
+      if (d.t === 'area') {
+        const cur = (c.v[key] || '').trim(), sep = key === 'accroches' || key === 'notes' ? '\n' : ' ';
+        c.v[key] = cur ? cur + sep + item : item;
+      } else c.v[key] = item;
+      delete ui.ideas[key];
+    }
+    changed(key);
+    toast('Idée ajoutée.');
+    if (!ui.ideas[key]) { const el = $('#f-' + key); if (el) el.focus({ preventScroll: true }); }
+  }
+  function ideasHTML(key, c) {
+    const st = ui.ideas[key];
+    if (!st) return '';
+    const d = F[key], f = form(c), short = d.t !== 'area';
+    return `<div class="ideas" role="group" aria-label="Idées originales : ${esc(d.label)}"><p class="ideas-t">${ICON.bulb}<span>Idées originales</span></p>` +
+      `<div class="ideas-list${short ? ' pills' : ''}">${st.items.map((t, i) => `<button type="button" class="idea" data-act="ideaUse" data-key="${key}" data-i="${i}">${esc(disp(t, f))}</button>`).join('')}</div>` +
+      `<div class="btnrow"><button type="button" class="btn small" data-act="ideaMore" data-key="${key}">${ICON.die}<span>D'autres idées</span></button><button type="button" class="btn small ghost" data-act="ideaClose" data-key="${key}">Fermer</button></div></div>`;
+  }
+
   /* ---------- définition des champs ---------- */
   // t : type de champ. gen : tirage au sort (absent = pas de dé). w : "half" pour deux colonnes.
   const F = {
     prenom: { t: 'text', label: 'Prénom', ph: 'Emily', max: 40, w: 'half', gen: c => { const p = pool(c), f = form(c); return f === 'f' ? pick(p.f) : f === 'm' ? pick(p.m) : (Math.random() < 0.6 ? pick(D.NEUTRES) : pick(p.f.concat(p.m))); } },
     nom: { t: 'text', label: 'Nom', ph: 'Carter', max: 40, w: 'half', gen: c => pick(pool(c).noms) },
-    surnom: { t: 'text', label: 'Surnom', ph: 'Em', max: 30, w: 'half' },
+    surnom: { t: 'text', label: 'Surnom', ph: 'Em', max: 30, w: 'half', gen: (c, bulk) => { if (bulk && Math.random() > 0.35) return ''; const nk = nicknameIdeas(c); return nk.mine.length && Math.random() < 0.6 ? pick(nk.mine) : pick(nk.pool); } },
     age: { t: 'number', label: 'Âge', min: 14, max: 100, unit: 'ans', w: 'half', gen: () => { const r = Math.random(); return r < 0.25 ? rint(18, 25) : r < 0.7 ? rint(26, 40) : r < 0.92 ? rint(41, 60) : rint(61, 82); } },
     genre: { t: 'chips', label: 'Genre', opts: D.GENRES, w: 'half', gen: () => pick(D.GENRES) },
     origine: { t: 'chips', label: 'Origines', opts: D.ORIGINES.map(o => o.label), custom: true, gen: () => wpick(D.ORIGINES.map(o => [o.label, o.poids || 1])) },
@@ -198,24 +279,24 @@
     av_lunettes: { t: 'chips', label: 'Lunettes', opts: A.LUNETTES },
     av_taches: { t: 'chips', label: 'Taches de rousseur', opts: A.TACHES },
     style: { t: 'multi', label: 'Style vestimentaire', opts: D.STYLES, max: 3, custom: true, gen: () => pickN(D.STYLES, rint(1, 2)) },
-    signes: { t: 'area', label: 'Signes distinctifs', rows: 2, ph: 'Cicatrice, tatouage, piercing, détail qu\'on remarque…', gen: c => (Math.random() < 0.65 ? fill(pick(D.SIGNES), c) : '') },
-    attitude: { t: 'area', label: 'Voix et attitude', rows: 2, ph: 'Comment il ou elle parle, se tient, occupe l\'espace…', gen: c => fill(pick(D.ATTITUDES), c) },
+    signes: { t: 'area', label: 'Signes distinctifs', rows: 2, ph: 'Cicatrice, tatouage, piercing, détail qu\'on remarque…', gen: (c, bulk) => (!bulk || Math.random() < 0.65 ? fill(pick(D.SIGNES.concat(ipool('signes'))), c) : '') },
+    attitude: { t: 'area', label: 'Voix et attitude', rows: 2, ph: 'Comment il ou elle parle, se tient, occupe l\'espace…', gen: c => fill(pick(D.ATTITUDES.concat(ipool('attitude'))), c) },
 
     traits: { t: 'multi', label: 'Traits de caractère', opts: D.TRAITS, max: 5, custom: true, gen: () => pickN(D.TRAITS, rint(3, 4)) },
     qualites: { t: 'multi', label: 'Qualités', opts: D.QUALITES, max: 3, custom: true, gen: () => pickN(D.QUALITES, rint(2, 3)) },
     defauts: { t: 'multi', label: 'Défauts', opts: D.DEFAUTS, max: 3, custom: true, gen: () => pickN(D.DEFAUTS, rint(2, 3)) },
     peurs: { t: 'multi', label: 'Peurs', opts: D.PEURS, max: 3, custom: true, gen: () => pickN(D.PEURS, rint(1, 2)) },
     loisirs: { t: 'multi', label: 'Loisirs et passions', opts: loisirList, max: 5, custom: true, gen: () => pickN(loisirList(), rint(2, 4)) },
-    motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(pick(D.MOTIVATIONS), c) },
-    manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => pickN(D.MANIES, 2).map(s => fill(s, c)).join(' ') },
-    secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(pick(D.SECRETS), c) },
+    motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(pick(D.MOTIVATIONS.concat(ipool('motivation'))), c) },
+    manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => pickN(D.MANIES.concat(ipool('manies')), 2).map(s => fill(s, c)).join(' ') },
+    secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(pick(D.SECRETS.concat(ipool('secret'))), c) },
 
-    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', gen: c => fill(pick(D.ENFANCES), c) },
-    parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => fill(pick(D.PARCOURS), c) },
+    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', gen: c => fill(pick(D.ENFANCES.concat(ipool('enfance'))), c) },
+    parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => fill(pick(D.PARCOURS.concat(ipool('parcours'))), c) },
     evenement: { t: 'chips', label: 'Événement marquant', opts: D.EVENEMENTS, custom: true, gen: () => pick(D.EVENEMENTS) },
-    actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => fill(pick(D.ACTUELS), c) },
-    accroches: { t: 'area', label: 'Accroches de RP', rows: 4, ph: 'Ce qui permet à un autre personnage de l\'aborder ou de l\'entraîner dans son histoire.', gen: c => pickN(D.ACCROCHES, 3).map(s => '• ' + fill(s, c)).join('\n') },
-    notes: { t: 'area', label: 'Notes libres', rows: 3, ph: 'Tout ce qui ne rentre pas ailleurs.' },
+    actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => fill(pick(D.ACTUELS.concat(ipool('actuel'))), c) },
+    accroches: { t: 'area', label: 'Accroches de RP', rows: 4, ph: 'Ce qui permet à un autre personnage de l\'aborder ou de l\'entraîner dans son histoire.', gen: c => pickN(D.ACCROCHES.concat(ipool('accroches')), 3).map(s => '• ' + fill(s, c)).join('\n') },
+    notes: { t: 'area', label: 'Notes libres', rows: 3, ph: 'Tout ce qui ne rentre pas ailleurs.', gen: c => fill(pick(ipool('notes')), c) },
 
     rel: {
       t: 'rel', label: 'Relations',
@@ -224,7 +305,7 @@
         return [first].concat(pickN(D.LIENS.filter(l => l !== first), 2)).map(lien => {
           const o = lien === 'Famille' ? pool(c) : pick(D.ORIGINES);
           const nom = lien === 'Famille' && c.v.nom ? disp(c.v.nom, form(c)) : pick(o.noms);
-          return { nom: pick(o.f.concat(o.m)) + ' ' + nom, lien, note: fill(pick(D.NOTES_REL), c) };
+          return { nom: pick(o.f.concat(o.m)) + ' ' + nom, lien, note: fill(pick(D.NOTES_REL.concat(ipool('relnote'))), c) };
         });
       }
     }
@@ -252,7 +333,7 @@
     { id: 'fiche', short: 'Fiche', title: 'Fiche', color: '--l6', lede: 'Relis, copie, partage.', groups: [] }
   ];
   STEPS.forEach(st => { st.fields = st.groups.reduce((acc, g) => acc.concat(g.keys), []); });
-  const ORDER = ['genre', 'origine', 'prenom', 'nom', 'age', 'ville', 'metier', 'affiliation', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel'];
+  const ORDER = ['genre', 'origine', 'prenom', 'nom', 'age', 'ville', 'metier', 'affiliation', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel', 'surnom'];
 
   /* ---------- modèle et stockage ---------- */
   // background : parties affichées (on), textes par partie (t). Les textes des parties masquées sont gardés.
@@ -304,7 +385,7 @@
   let store = { cur: null, order: [], chars: {}, world: 'gta' };
   let storageOK = true;
   // ph : image en cours de cadrage (élément image, taille, zoom, décalage) pour le personnage cid
-  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, exIdx: null, bgPrev: {}, bgArm: false, descText: '', desc: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
+  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, ideas: {}, exIdx: null, bgPrev: {}, bgArm: false, descText: '', desc: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
   const C = () => store.chars[store.cur];
 
   function loadStore() {
@@ -344,7 +425,7 @@
     else c.v[key] = val;
   }
   function genKeys(c, keys) {
-    ORDER.filter(k => keys.indexOf(k) >= 0 && !c.locks[k] && F[k].gen && (!F[k].world || F[k].world === W())).forEach(k => setVal(c, k, F[k].gen(c)));
+    ORDER.filter(k => keys.indexOf(k) >= 0 && !c.locks[k] && F[k].gen && (!F[k].world || F[k].world === W())).forEach(k => setVal(c, k, F[k].gen(c, true)));
   }
 
   /* ---------- fiche : contenu et exports ---------- */
@@ -434,9 +515,15 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
   }
 
   /* ---------- rendu des champs ---------- */
-  const toolsHTML = (key, label, locked) =>
-    `<span class="tools"><button type="button" class="tool" data-act="roll" data-key="${key}" aria-label="Tirer au sort : ${esc(label)}" title="Tirer au sort"${locked ? ' disabled' : ''}>${ICON.die}</button>` +
-    `<button type="button" class="tool" data-act="lock" data-key="${key}" aria-pressed="${!!locked}" aria-label="Verrouiller : ${esc(label)}" title="${locked ? 'Déverrouiller' : 'Verrouiller'}">${locked ? ICON.lock : ICON.unlock}</button></span>`;
+  const toolsHTML = (key, label, locked) => {
+    let h = '';
+    if (hasIdeas(key)) h += `<button type="button" class="tool" data-act="ideas" data-key="${key}" aria-expanded="${!!ui.ideas[key]}" aria-label="Idées originales : ${esc(label)}" title="Idées originales">${ICON.bulb}</button>`;
+    if (F[key].gen) {
+      h += `<button type="button" class="tool" data-act="roll" data-key="${key}" aria-label="Tirer au sort : ${esc(label)}" title="Tirer au sort"${locked ? ' disabled' : ''}>${ICON.die}</button>` +
+        `<button type="button" class="tool" data-act="lock" data-key="${key}" aria-pressed="${!!locked}" aria-label="Verrouiller : ${esc(label)}" title="${locked ? 'Déverrouiller' : 'Verrouiller'}">${locked ? ICON.lock : ICON.unlock}</button>`;
+    }
+    return `<span class="tools">${h}</span>`;
+  };
   const chipBtn = (key, val, label, on) => `<button type="button" class="chip" data-act="chip" data-key="${key}" data-v="${esc(val)}" aria-pressed="${on}">${esc(label)}</button>`;
 
   /* ---------- image choisie par la personne ---------- */
@@ -523,13 +610,14 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
         return `<div class="rel"><input class="in" data-rel="nom" data-i="${i}" type="text" value="${esc(r.nom)}" placeholder="Nom" maxlength="80" aria-label="Nom de la relation ${i + 1}">` +
           `<select class="in" data-rel="lien" data-i="${i}" aria-label="Lien avec ${esc(r.nom || 'cette personne')}"><option value=""${r.lien ? '' : ' selected'}>Lien…</option>${liens.map(l => `<option${l === r.lien ? ' selected' : ''}>${esc(l)}</option>`).join('')}${r.lien && !known ? `<option selected>${esc(r.lien)}</option>` : ''}</select>` +
           `<input class="in" data-rel="note" data-i="${i}" type="text" value="${esc(r.note)}" placeholder="Qui est cette personne pour lui ou elle ?" maxlength="300" aria-label="Description de la relation ${i + 1}">` +
-          `<button type="button" class="tool danger" data-act="relDel" data-i="${i}" aria-label="Supprimer la relation ${i + 1}" title="Supprimer">${ICON.trash}</button></div>`;
+          `<button type="button" class="tool danger" data-act="relDel" data-i="${i}" aria-label="Supprimer la relation ${i + 1}" title="Supprimer">${ICON.trash}</button>` +
+          `<button type="button" class="tool rel-roll" data-act="relRoll" data-i="${i}" aria-label="Une autre description pour la relation ${i + 1}" title="Une autre description">${ICON.die}</button></div>`;
       }).join('')}</div>` : '<p class="empty">Aucune relation pour l\'instant. Ajoutes-en une, ou tire-en trois au sort avec le dé.</p>';
       ctl += `<div class="rel-actions"><button type="button" class="btn" data-act="relAdd">${ICON.plus} Ajouter une relation</button></div>`;
     }
-    const tools = d.gen ? toolsHTML(key, d.label, locked) : '';
-    const wide = d.t === 'rel' || d.t === 'chips' && d.w !== 'half' || d.t === 'multi' || d.t === 'swatch' || d.t === 'area';
-    return `<div class="field${wide ? ' full' : ''}" data-field="${key}"><div class="field-head">${label}${tools}</div>${ctl}</div>`;
+    const tools = d.gen || hasIdeas(key) ? toolsHTML(key, d.label, locked) : '';
+    const wide = d.t === 'rel' || d.t === 'chips' && d.w !== 'half' || d.t === 'multi' || d.t === 'swatch' || d.t === 'area' || !!ui.ideas[key];
+    return `<div class="field${wide ? ' full' : ''}" data-field="${key}"><div class="field-head">${label}${tools}</div>${ctl}${ideasHTML(key, c)}</div>`;
   }
 
   /* ---------- assistance de Claude (demande à copier) ---------- */
@@ -598,11 +686,37 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       ['Retraitée à Phoenix', 'Une retraitée de 68 ans à Phoenix, cheveux blancs, attentionnée, veuve, adore le jardinage']
     ]
   };
-  const exPool = () => EXAMPLES[W()];
+  const exPool = () => EXAMPLES[W()].concat((D.IDEES && D.IDEES['ex_' + W()]) || []);
   function exShown() {
     const n = exPool().length;
     if (!ui.exIdx || ui.exIdx.some(i => i >= n)) ui.exIdx = pickN(Array.from({ length: n }, (_, i) => i), Math.min(4, n));
     return ui.exIdx;
+  }
+  // une description complète et originale, tirée au hasard dans les pièces de ideas.js
+  function randomDescription() {
+    const gta = W() === 'gta', f = Math.random() < 0.5 ? 'f' : 'm', DD = D.IDEES.desc;
+    const age = wpick([[rint(19, 25), 3], [rint(26, 40), 5], [rint(41, 58), 3], [rint(59, 74), 1]]);
+    const ville = pick(D.VILLES), where = D.cityName(ville);
+    let jobs = gta && Math.random() < 0.65 ? D.metiersGta(ville) : D.METIERS;
+    if (age < 23) jobs = jobs.filter(j => !D.JOBS_ADULT.test(j));
+    if (age < 26 && Math.random() < 0.5) jobs = gta ? D.etudiantsGta(ville) : D.METIERS_ETUDIANTS;
+    if (age >= 64 && Math.random() < 0.5) jobs = ['Retraité|Retraitée'];
+    const rawJob = pick(jobs.length ? jobs : D.METIERS);
+    const job = lc(disp(rawJob, f)).replace(/\s+(?:à|chez|pour|dans|au)\s.+$/, '');
+    const traits = pickN(D.TRAITS, 2).map(t => lc(disp(t, f)));
+    const look = pick((f === 'f' ? DD.look_f : DD.look_m).concat(DD.look_any));
+    const status = Math.random() < 0.3 ? ', ' + lc(disp(pick(['Célibataire', 'Divorcé|Divorcée', 'Veuf|Veuve', 'Marié|Mariée']), f)) : '';
+    const gang = gta && age <= 45 && D.GANG_JOBS.test(rawJob) && Math.random() < 0.25 ? ', membre ' + pick(['des Ballas', 'des Families', 'des Vagos', 'de la Marabunta Grande', 'du Lost MC']) : '';
+    const kind = rint(0, 2);
+    let twist;
+    if (kind === 0) twist = pick(DD.reves);
+    else if (kind === 1) twist = pick(DD.secrets);
+    else {
+      const r = pick(DD.roles), nom = pick(r[1] === 'f' ? DD.noms_f : DD.noms_m);
+      twist = (r[1] === 'f' ? 'Sa ' : 'Son ') + r[0] + ' ' + nom + ' ' + pick(DD.role_verbes) + '.';
+    }
+    twist = fill(twist, { v: { genre: f === 'f' ? 'Femme' : 'Homme' } });
+    return (f === 'f' ? 'Une ' : 'Un ') + job + ' de ' + age + ' ans à ' + where + ', ' + look + ', ' + traits[0] + ' et ' + traits[1] + status + gang + '. ' + twist;
   }
   const isUntouched = c => ORDER.every(k => !hasValue(c, k)) && !c.photo.src;
   function descHTML(c) {
@@ -614,7 +728,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       : '<div class="desc-result"><p><b>Rien de reconnu.</b> Ajoute l\'âge, le métier, la ville, l\'apparence ou le caractère.</p></div>';
     return `<details class="group describe" data-more="describe"${open ? ' open' : ''}><summary>${ICON.spark}<span>Décrire le personnage que tu imagines</span></summary>
 <div class="describe-body"><textarea class="in" id="descText" rows="3" maxlength="800" placeholder="Ex. : une infirmière de 34 ans à Chicago, rousse, sarcastique, avec une cicatrice sur la main">${esc(ui.descText)}</textarea>
-<div class="btnrow"><button type="button" class="btn primary" data-act="descApply">${ICON.spark} Créer le personnage</button><span class="hint">ou essaie :</span>${exShown().map(i => `<button type="button" class="chip" data-act="descEx" data-i="${i}">${esc(exPool()[i][0])}</button>`).join('')}<button type="button" class="chip more-chip" data-act="descMore">Autres idées</button></div>${result}</div></details>`;
+<div class="btnrow"><button type="button" class="btn primary" data-act="descApply">${ICON.spark} Créer le personnage</button><span class="hint">ou essaie :</span>${exShown().map(i => `<button type="button" class="chip" data-act="descEx" data-i="${i}">${esc(exPool()[i][0])}</button>`).join('')}<button type="button" class="chip" data-act="descRandom">${ICON.die} Idée au hasard</button><button type="button" class="chip more-chip" data-act="descMore">Autres idées</button></div>${result}</div></details>`;
   }
   function describeApply() {
     const text = ui.descText.trim();
@@ -693,6 +807,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     return `<section class="step" data-step="${s.id}" style="--accent:var(${s.color})">${head}${body}${foot}</section>`;
   }
   function renderPanel() {
+    ui.ideas = {};
     $('#panel').innerHTML = panelHTML();
     phLayout();
     $('.layout').classList.toggle('no-preview', STEPS[ui.step].id === 'fiche');
@@ -864,7 +979,8 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
   }
   function roll(key) {
     const c = C();
-    setVal(c, key, F[key].gen(c));
+    const val = F[key].gen(c);
+    if (key === 'notes' && c.v.notes && val) setVal(c, key, c.v.notes.trim() + '\n' + val); else setVal(c, key, val);
     changed(key);
     if (key === 'prenom' || key === 'nom') renderPreview();
   }
@@ -959,6 +1075,22 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
         if (c.photo.src) fetch(c.photo.src).then(r => r.blob()).then(b => saveFile(slug(sheet(c).name) + '-portrait.jpg', b, 'image/jpeg'));
         break;
       case 'descApply': describeApply(); break;
+      case 'ideas':
+        if (ui.ideas[key]) delete ui.ideas[key]; else ui.ideas[key] = makeIdeas(key, c, []);
+        refreshField(key); break;
+      case 'ideaMore': { const st = ui.ideas[key]; if (st) { ui.ideas[key] = makeIdeas(key, c, st.avoid); refreshField(key); } break; }
+      case 'ideaClose': { delete ui.ideas[key]; refreshField(key); const el = $('[data-act="ideas"][data-key="' + key + '"]'); if (el) el.focus({ preventScroll: true }); break; }
+      case 'ideaUse': useIdea(key, Number(b.dataset.i)); break;
+      case 'relRoll': {
+        const r = c.rel[Number(b.dataset.i)];
+        if (!r) break;
+        if (!r.nom) { const o = pick(D.ORIGINES); r.nom = pick(o.f.concat(o.m)) + ' ' + pick(o.noms); }
+        if (!r.lien) r.lien = pick(D.LIENS);
+        r.note = fill(pick(D.NOTES_REL.concat(ipool('relnote'))), c);
+        changed('rel'); break;
+      }
+      case 'descRandom': { ui.descText = randomDescription(); const t = $('#descText'); if (t) { t.value = ui.descText; t.focus(); } break; }
+      case 'homeRandom': ui.descText = randomDescription(); describeApply(); break;
       case 'descMore': ui.exIdx = null; if (ui.view === 'home') renderHome(); else renderPanel(); break;
       case 'descEx': { const ex = exPool()[Number(b.dataset.i)]; if (ex) { ui.descText = ex[1]; const t = $('#descText'); if (t) { t.value = ex[1]; t.focus(); } } break; }
       case 'expand': ui.exp[key] = !ui.exp[key]; refreshField(key); break;
@@ -993,8 +1125,9 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       }
       case 'bgRoll': {
         const k = b.dataset.k;
-        if ((c.bg.t[k] || '').trim()) ui.bgPrev[c.id + k] = c.bg.t[k];
-        c.bg.t[k] = bgOne(c, k);
+        const had = (c.bg.t[k] || '').trim();
+        if (had) ui.bgPrev[c.id + k] = c.bg.t[k];
+        c.bg.t[k] = k === 'libre' ? (had ? had + '\n\n' : '') + BG.anecdote(c, disp, form(c), W()).slice(0, 1500) : bgOne(c, k);
         bgChanged('[data-act="bgRoll"][data-k="' + k + '"]'); break;
       }
       case 'bgUndo': {
@@ -1183,9 +1316,9 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
   function bgSecHTML(c, k) {
     const gen = k !== 'libre', prev = ui.bgPrev[c.id + k], title = esc(BG_TITLE[k]);
     return `<article class="bg-sec" style="--c:var(${BG_LINE[k]})"><div class="field-head"><label class="lbl" for="bg-${k}">${title}</label><span class="tools">` +
-      (gen ? `<button type="button" class="tool" data-act="bgRoll" data-k="${k}" aria-label="Réécrire : ${title}" title="Réécrire cette partie">${ICON.die}</button>` : '') +
+      `<button type="button" class="tool" data-act="bgRoll" data-k="${k}" aria-label="${gen ? 'Réécrire : ' + title : 'Ajouter une anecdote originale'}" title="${gen ? 'Réécrire cette partie' : 'Ajouter une anecdote originale'}">${ICON.die}</button>` +
       `<button type="button" class="tool" data-act="bgToggle" data-k="${k}" aria-label="Masquer : ${title} (le texte est gardé)" title="Masquer cette partie (le texte est gardé)">${ICON.minus}</button></span></div>` +
-      `<textarea class="in" id="bg-${k}" data-bg="${k}" rows="6" maxlength="6000" placeholder="${gen ? '' : 'Écris ou colle ici ce que tu veux ajouter à son histoire.'}">${esc(c.bg.t[k] || '')}</textarea>` +
+      `<textarea class="in" id="bg-${k}" data-bg="${k}" rows="6" maxlength="6000" placeholder="${gen ? '' : 'Écris ici ce que tu veux ajouter, ou clique sur le dé pour une anecdote originale.'}">${esc(c.bg.t[k] || '')}</textarea>` +
       (prev ? `<div><button type="button" class="link" data-act="bgUndo" data-k="${k}">Rétablir la version précédente</button></div>` : '') + '</article>';
   }
   function bgClaudeHTML() {
@@ -1259,7 +1392,7 @@ ${bgHintsHTML(c)}${body}</div>
 <div class="tiles">${tile('#creation', '--l1', TILE_ICON.creer, 'Création de personnage', 'Identité, apparence, caractère, relations. Décris-le en une phrase ou construis-le pas à pas.', name ? 'Reprendre ' + esc(name) : 'Commencer')}${tile('#background', '--l4', TILE_ICON.histoire, 'Background', 'Rédige l\'histoire d\'un personnage à partir de sa fiche : origines, parcours, tournant.', name ? 'Pour ' + esc(name) : 'Choisir un personnage')}</div>
 <div class="home-boxes">
 <section class="home-box" aria-labelledby="ideasT"><h2 class="box-t" id="ideasT">Une idée pour commencer ?</h2><p class="hint">Un clic crée le personnage correspondant, que tu pourras ensuite modifier.</p>
-<div class="chips">${exShown().map(i => `<button type="button" class="chip" data-act="homeEx" data-i="${i}">${esc(exPool()[i][0])}</button>`).join('')}<button type="button" class="chip more-chip" data-act="descMore">Autres idées</button></div></section>
+<div class="chips">${exShown().map(i => `<button type="button" class="chip" data-act="homeEx" data-i="${i}">${esc(exPool()[i][0])}</button>`).join('')}<button type="button" class="chip" data-act="homeRandom">${ICON.die} Surprends-moi</button><button type="button" class="chip more-chip" data-act="descMore">Autres idées</button></div></section>
 <section class="home-box" aria-labelledby="worldT"><h2 class="box-t" id="worldT">Univers</h2>
 <div class="chips" role="group" aria-labelledby="worldT">${wbtn('gta', 'GTA RP · San Andreas')}${wbtn('usa', 'États-Unis réels')}</div>
 <p class="hint">${gta ? 'Los Santos, Blaine County (Sandy Shores, Paleto Bay…), Vice City et Liberty City, avec leurs métiers, services et gangs.' : 'Les grandes villes et les petites villes des États-Unis d\'aujourd\'hui, avec des métiers de la vie courante.'}</p></section>

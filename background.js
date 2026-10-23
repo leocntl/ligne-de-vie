@@ -161,7 +161,10 @@ window.LDV_BG = (function () {
       ["Les fins de mois étaient serrées, et {n} a appris tôt la valeur de l'argent et le prix du silence.", []],
       ["Les étés, les gamins du coin traînaient sur la plage, sur les toits ou devant les épiceries, jusqu'à ce que la ville s'illumine.", ['gta']],
       ["À la maison, la radio ne s'éteignait jamais, entre rap, rock et publicités délirantes, et elle berçait les disputes comme les dîners.", ['gta']],
-      ["Les sirènes, la nuit, faisaient partie du décor, et {n} a appris très tôt à ne plus sursauter.", ['gta']]
+      ["Les sirènes, la nuit, faisaient partie du décor, et {n} a appris très tôt à ne plus sursauter.", ['gta']],
+      ["Un voisin excentrique a appris à {n} à siffler, à ouvrir une serrure et à ne jamais refuser une partie de cartes.", []],
+      ["{n} s'était inventé un code secret avec un cousin, et en a gardé l'habitude de tout noter de travers.", []],
+      ["L'été de ses neuf ans, {n} a vendu de la limonade à un homme qui s'est révélé être quelqu'un d'important. {Il} ne l'a su que bien plus tard.", []]
     ],
     origD: [
       ["C'est de cette enfance qu'{il} tient son côté {qualite}.", ['qualite']],
@@ -185,7 +188,9 @@ window.LDV_BG = (function () {
       ["Une bêtise de jeunesse, plus grave qu'{il} ne l'aurait cru, a failli tout compromettre.", []],
       ["À dix-huit ans, {n} a dû choisir entre ce que ses parents espéraient et ce qu'{il} voulait vraiment.", []],
       ["Les premières désillusions sont arrivées vite, avec leur lot de promesses non tenues.", []],
-      ["Une nuit de trop dans la mauvaise rue, et {n} a compris que, dans cette ville, les ennuis ne préviennent pas.", ['gta']]
+      ["Une nuit de trop dans la mauvaise rue, et {n} a compris que, dans cette ville, les ennuis ne préviennent pas.", ['gta']],
+      ["Une année, {n} a changé d'avis sur tout, y compris sur ses amis. Il en reste deux, et ce ne sont pas ceux qu'on croit.", []],
+      ["Un incendie, un déménagement ou une dispute (les versions diffèrent) a obligé la famille à repartir de zéro.", []]
     ],
     jeunD: [
       ["Après le lycée, {il} a tenté l'université, puis a travaillé pour la payer, quitte à ralentir son cursus.", []],
@@ -211,7 +216,9 @@ window.LDV_BG = (function () {
     parcC: [
       ["{il} aime son quotidien pour ce qu'il permet de rencontrer, moins pour ce qu'il rapporte.", []],
       ["Le salaire ne suit pas toujours, mais {il} préfère cela à l'ennui.", []],
-      ["Il y a des jours où {il} se demande {s_il} n'a pas manqué une autre vie.", []]
+      ["Il y a des jours où {il} se demande {s_il} n'a pas manqué une autre vie.", []],
+      ["Collègues et clients s'accordent sur un point : {n} n'oublie jamais un visage, et ne pardonne pas toujours.", ['metierPro']],
+      ["Chaque année, {n} se promet de changer de métier. Chaque année, {il} reste, pour une raison différente.", ['metierPro']]
     ],
     parcD: [
       ["Au fond, {n} garde une idée en tête. {motivation}", ['motivation']]
@@ -235,13 +242,16 @@ window.LDV_BG = (function () {
     ajdC: [
       ["Pour décompresser, il y a {hobby}.", ['hobby']],
       ["Ses soirées, {il} les passe souvent loin des écrans, à retrouver une vieille habitude : {hobby}.", ['hobby']],
-      ["Quand la ville devient trop bruyante, {il} file sur la route, vitres baissées, radio à fond.", ['gta']]
+      ["Quand la ville devient trop bruyante, {il} file sur la route, vitres baissées, radio à fond.", ['gta']],
+      ["Il y a un coin de {ville} où {n} va quand {il} a besoin de réfléchir, et qu'{il} ne montrerait à personne.", ['ville']]
     ],
     ajdD: [
       ["Son principal adversaire reste {luimeme} : {il} est {defaut}, et cela complique parfois ses relations.", ['defaut']],
       ["Une peur suit {n} depuis longtemps : {peur}.", ['peur']],
       ["{n} est à un moment charnière : {il} le sent, sans savoir de quel côté tout va basculer.", []],
-      ["Dans cette ville, un faux pas se paie cher, et {n} le sait mieux que personne.", ['gta']]
+      ["Dans cette ville, un faux pas se paie cher, et {n} le sait mieux que personne.", ['gta']],
+      ["Ce qui retient {n} à {ville}, {il} ne le dit à personne, pas même à {luimeme}.", ['ville']],
+      ["{n} a un projet qu'{il} ne dévoile pas, de peur qu'on le décourage ou, pire, qu'on l'encourage.", []]
     ]
   };
 
@@ -295,7 +305,47 @@ window.LDV_BG = (function () {
     return fill(e[0], x);
   }
   // majuscule en début de phrase, espaces propres
-  const tidy = s => s.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').replace(/(^|[.!?]\s+)([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase()).replace(/\.\s*\./g, '.').trim();
+  const tidy = s => s.replace(/\s+/g, ' ').replace(/\s+([,.])/g, '$1').replace(/(^|[.!?]\s+)([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase()).replace(/\.\s*\./g, '.').trim();
+
+  // anecdotes : de petits épisodes originaux à glisser dans le « Texte libre »
+  const ANEC = [
+    ["Un hiver, {n} a recueilli un chien errant « pour une nuit ». Le chien est resté quatre ans, et {n} jure que c'est lui qui l'a adopté{e}.", []],
+    ["Le jour de ses dix-huit ans, {n} a pris un bus sans regarder la destination. {Il} est revenu{e} trois jours plus tard, avec une histoire qu'{il} ne raconte qu'à moitié.", []],
+    ["{n} a un jour gagné un concours de karaoké en chantant une chanson dont {il} ne connaissait pas les paroles. Depuis, {il} est invité{e} à des fêtes où {il} ne connaît personne.", []],
+    ["Pendant des années, {n} a signé ses cartes d'anniversaire d'un nom qui n'est pas le sien. La seule personne à avoir deviné est {rel}.", ['rel']],
+    ["Une panne de voiture au milieu de nulle part a forcé {n} à passer une nuit chez des inconnus. {Il} en parle encore comme de la meilleure soirée de sa vie.", []],
+    ["{n} a prêté un jour sa voiture à un ami, qui l'a rendue avec dix litres d'essence, un bouquet de fleurs fanées dans le coffre et une explication que personne n'a jamais comprise.", []],
+    ["Lors d'un mariage auquel {il} n'était pas invité{e}, {n} a fini par prononcer le discours du témoin. Il a été très applaudi.", []],
+    ["{n} garde dans un tiroir une lettre jamais envoyée. {Il} la réécrit chaque année, avec un peu moins de colère à chaque fois.", []],
+    ["{n} a travaillé une semaine entière sous un faux nom, à cause d'une erreur administrative. {Il} y a gagné deux amis et une réputation.", []],
+    ["À {ville}, on parle encore de la fois où {n} a tenu tête à tout un bar, armé{e} d'un seul mot et d'un sourire.", ['ville']],
+    ["{n} a failli rater sa propre fête surprise : arrivé{e} en avance, {il} avait aidé à tout installer sans rien comprendre.", []],
+    ["Un soir d'orage, {n} a fait une promesse à {rel}. {Il} ne l'a pas encore tenue, aucun des deux n'en parle, et personne ne l'a oubliée.", ['rel']],
+    ["Quelqu'un a dit un jour à {n} qu'{il} ferait un bon {metierPro}. C'était pour rire. {Il} l'est devenu{e} pour avoir le dernier mot.", ['metierPro']],
+    ["Un jour, pour tordre le cou à sa peur ({peur}), {n} a fait exactement le contraire de ce qu'on attendait de {lui}. Cela n'a pas marché, mais personne ne s'en souvient comme d'un échec.", ['peur']],
+    ["{n} a reçu un jour, par erreur, un colis destiné à quelqu'un de {ville}. {Il} l'a porté en personne, a été invité{e} à dîner, et en est reparti{e} avec un ami.", ['ville']],
+    ["{n} avait promis de ne plus jamais prêter d'argent. La semaine suivante, {il} en prêtait.", []],
+    ["{n} a réparé un jour quelque chose qui ne valait rien, juste pour voir. C'est devenu une habitude, puis une réputation, puis presque un métier.", []],
+    ["Au travail, on cite encore une remarque que {n} a faite un mardi matin, devant tout le monde, et que personne n'a oubliée.", ['metierPro']]
+  ];
+  const ANEC_GTA = [
+    ["Une nuit à {ville}, {n} a été pris{e} pour quelqu'un d'autre par trois hommes en costume. {Il} s'en est tiré avec un sourire, une fausse identité de quarante minutes et un numéro de téléphone qu'{il} n'a jamais osé appeler.", ['ville']],
+    ["{n} a un jour fait trois fois le tour du pâté de maisons devant un commissariat avant de se décider à entrer. {Il} ne dit pas pourquoi.", []],
+    ["Lors d'un tournage à Vinewood, {n} a été figurant six heures derrière un acteur très célèbre. Personne ne l'a repéré à l'écran, sauf {n}, qui regarde la scène à chaque fois qu'elle repasse à la télé.", []],
+    ["Un soir de panne d'électricité à {ville}, {n} a organisé un dîner dans la rue pour tout l'immeuble. Depuis, il paraît que chacun lui doit un service.", ['ville']],
+    ["{n} a failli acheter un bateau lors d'une vente aux enchères à Del Perro. {Il} ne l'a pas fait, mais la facture d'inscription traîne encore dans sa boîte à gants.", []],
+    ["Sur la route de Sandy Shores, {n} a pris un jour en stop un homme avec une valise noire. {Il} ne lui a posé aucune question. L'homme lui a laissé en partant un billet de cent dollars et un conseil : « ne reviens jamais par ici ».", []],
+    ["{n} a gagné un jour un concours de danse sur la jetée de Vespucci, devant une foule qui riait au début et applaudissait à la fin.", []],
+    ["La nuit de la grande coupure de courant, {n} s'est retrouvé{e} coincé{e} dans un ascenseur avec un inconnu. Ils en parlent encore, chacun de son côté, avec des versions différentes.", []],
+    ["{n} a reçu un jour une enveloppe d'un inconnu : trois mille dollars et un mot, « merci pour hier ». {Il} ne se souvient pas d'hier, ni de lui.", []],
+    ["Un chauffeur de taxi de Downtown a dit un jour à {n} : « tu finiras bien par savoir où tu vas ». {n} y repense à chaque carrefour.", []]
+  ];
+  function anecdote(c, disp, f, world) {
+    const x = context(c, disp, f, world);
+    const all = world === 'gta' ? ANEC.concat(ANEC_GTA) : ANEC;
+    const pool = all.filter(e => ok(e, x));
+    return tidy(fill(pick(pool)[0], x));
+  }
 
   const SECTIONS = {
     origines: { title: 'Origines', make: (x, used) => {
@@ -338,5 +388,5 @@ window.LDV_BG = (function () {
   const TITLES = {};
   KEYS.forEach(k => { TITLES[k] = SECTIONS[k].title; });
 
-  return { section, PLANS, KEYS, TITLES };
+  return { section, anecdote, PLANS, KEYS, TITLES };
 })();

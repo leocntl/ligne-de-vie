@@ -33,6 +33,17 @@ Dans les deux cas, les prénoms et noms sont répartis par origines familiales (
 - **Lien de partage** : la fiche entière, background compris, est encodée dans l'adresse (`#p=…`), sans serveur. La photo n'y figure pas (trop lourde) : elle voyage dans le fichier `.json`.
 - **Import** d'un lien ou d'un fichier `.json`.
 
+## Idées originales
+
+Partout où l'on peut écrire soi-même, le site propose des idées au hasard, et elles sont originales plutôt que génériques.
+
+- **Une ampoule** à côté de chaque champ libre ouvre quatre à six idées : surnom, métier, affiliation, signes distinctifs, voix et attitude, motivation, manies, secret, enfance, parcours, aujourd'hui, accroches, notes, événement marquant, logement, traits, qualités, défauts, peurs, loisirs, style. Un clic ajoute l'idée (au texte déjà écrit, ou comme nouveau choix), « D'autres idées » en propose d'autres.
+- **Les dés** (tirage au sort) piochent dans les mêmes listes d'idées : le dé d'un champ de texte ne tombe plus jamais sur du vide, et chaque relation a son propre dé.
+- **Description** : « Idée au hasard » écrit une description complète (métier, âge, quartier, physique, caractère, un rêve, un secret ou une relation), et « Surprends-moi » sur l'accueil crée directement le personnage.
+- **Univers GTA** : des idées propres à San Andreas s'ajoutent (Vinewood, Sandy Shores, Paleto Bay, LSPD, gangs…). Les idées qui citent un lieu ou un métier local ne sont proposées qu'aux personnages qui y vivent.
+- **Surnoms** : déduits de la fiche (le métier, le caractère, les cheveux roux, les lunettes, la taille…) puis tirés d'une banque.
+- **Background** : le dé du « Texte libre » ajoute une anecdote originale, et de nouvelles phrases ont rejoint les parties générées.
+
 ## Background
 
 La page rédige l'histoire d'un personnage à partir de sa fiche.
@@ -52,12 +63,13 @@ Le site ne se connecte pas à Claude tout seul : il prépare une demande à part
 | `index.html` | Page, navigation, fenêtres |
 | `style.css` | Styles, thème clair et sombre |
 | `data.js` | Listes de noms, villes, métiers, traits, textes de tirage, univers GTA |
+| `ideas.js` | Banque d'idées originales (surnoms, secrets, enfances, manies, anecdotes…) |
 | `photo.js` | Image du personnage : lecture, cadrage et enregistrement |
 | `describe.js` | Analyse de la description libre (mots-clés, synonymes, tournures de phrase) |
 | `background.js` | Phrases types et assemblage du background |
 | `app.js` | Pages, champs, étapes, tirages, stockage, exports |
 
-Pour ajouter des métiers, des traits ou des phrases de tirage, il suffit de modifier `data.js` (et `background.js` pour le background).
+Pour ajouter des métiers, des traits ou des phrases de tirage, il suffit de modifier `data.js` ; pour ajouter des idées originales, `ideas.js` (les listes finissant par `_gta` ne servent que dans l'univers GTA) ; pour le background, `background.js`.
 Écrire `Têtu|Têtue` donne le bon accord selon le personnage, et `~` introduit un suffixe commun (`Sûr|Sûre~ de soi`).
 
 ## Tester en local
@@ -79,7 +91,7 @@ puis ouvre <http://localhost:8765>.
 5. Après une minute environ, le site est en ligne à l'adresse `https://<ton-compte>.github.io/ligne-de-vie/`.
 
 Les liens de partage utilisent l'adresse de la page : ils fonctionnent donc une fois le site publié.
-Quand tu modifies les fichiers, change le numéro dans `?v=21` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
+Quand tu modifies les fichiers, change le numéro dans `?v=24` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
 
 ## Description libre : ce qu'elle comprend
 

@@ -469,3 +469,18 @@ body[data-view="bg"] .mainnav a[aria-current="page"] { --accent: var(--l4); }
 @media (max-width: 380px) {
   .bg-foot { flex-wrap: wrap; }
 }
+
+/* ---------- idées originales ---------- */
+.tool[aria-expanded="true"] { color: var(--ink); background: color-mix(in srgb, var(--accent) 22%, var(--surface)); opacity: 1; }
+.ideas { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.ideas-t { display: flex; align-items: center; gap: 8px; font: 500 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+.ideas-t svg { width: 16px; height: 16px; color: var(--accent); }
+.ideas-list { display: grid; gap: 8px; }
+.ideas-list.pills { display: flex; flex-wrap: wrap; }
+.idea {
+  text-align: left; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.45;
+  border: 1px solid var(--border); border-left: 4px solid var(--accent); background: var(--surface); color: var(--ink);
+}
+.ideas-list.pills .idea { padding: 7px 13px; border-radius: 999px; border-left-width: 1px; }
+.idea:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.rel .tool.rel-roll { grid-column: 3; grid-row: 2; }
