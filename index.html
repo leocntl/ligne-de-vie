@@ -4,42 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ligne de vie</title>
-<meta name="description" content="Créateur de personnage pour jeu de rôle contemporain : identité, apparence, personnalité, histoire et relations. Tout reste dans ton navigateur.">
+<meta name="description" content="Créateur de personnage et rédacteur de background pour jeu de rôle contemporain, dans l'univers de GTA ou aux États-Unis. Tout reste dans ton navigateur.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 16h24' stroke='%232563EB' stroke-width='4'/%3E%3Ccircle cx='9' cy='16' r='5' fill='white' stroke='%23E8730C' stroke-width='3'/%3E%3Ccircle cx='23' cy='16' r='5' fill='white' stroke='%23C2308A' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
-<body>
-<a class="skip" href="#panel">Aller au formulaire</a>
+<body data-view="home">
+<a class="skip" href="#main" data-act="skip">Aller au contenu</a>
 
 <div class="app">
   <header class="top">
-    <a class="brand" href="./" aria-label="Ligne de vie, accueil">
+    <a class="brand" href="#" aria-label="Ligne de vie, accueil">
       <svg viewBox="0 0 64 24" width="52" height="20" aria-hidden="true"><path d="M4 12h56" stroke="var(--l1)" stroke-width="5" stroke-linecap="round"/><circle cx="12" cy="12" r="6" fill="var(--surface)" stroke="var(--l2)" stroke-width="4"/><circle cx="32" cy="12" r="6" fill="var(--surface)" stroke="var(--l3)" stroke-width="4"/><circle cx="52" cy="12" r="6" fill="var(--surface)" stroke="var(--l4)" stroke-width="4"/></svg>
       <span class="brand-name">Ligne de vie</span>
       <span class="brand-sub">Créateur de personnage RP</span>
     </a>
+    <nav class="mainnav" aria-label="Pages">
+      <a href="#creation" data-nav="creator">Création</a>
+      <a href="#background" data-nav="bg">Background</a>
+    </nav>
     <div class="top-actions">
-      <span class="status" id="status" role="status"></span>
-      <button type="button" class="btn" data-act="genAll"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/></svg><span class="t-long">Personnage au hasard</span><span class="t-short">Au hasard</span></button>
+      <span class="status" id="status" role="status" data-only="creator bg"></span>
+      <button type="button" class="btn" data-act="genAll" data-only="creator"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/></svg><span class="t-long">Personnage au hasard</span><span class="t-short">Au hasard</span></button>
       <button type="button" class="btn" data-act="openChars"><span class="t-long">Mes personnages</span><span class="t-short">Personnages</span><span class="badge" id="charCount">1</span></button>
-      <button type="button" class="btn primary" data-act="newBlank"><span>+ Nouveau</span></button>
+      <button type="button" class="btn primary" data-act="newBlank" data-only="creator"><span>+ Nouveau</span></button>
     </div>
   </header>
 
-  <div id="banner"></div>
-  <nav class="line" id="line" aria-label="Étapes de création"></nav>
+  <main id="main" tabindex="-1">
+    <section id="home" class="home" aria-label="Accueil"></section>
 
-  <div class="layout">
-    <main class="panel" id="panel"></main>
-    <aside class="preview" id="preview" aria-label="Aperçu de la fiche"></aside>
-  </div>
+    <div id="creator" hidden>
+      <div id="banner"></div>
+      <nav class="line" id="line" aria-label="Étapes de création"></nav>
+      <div class="layout">
+        <div class="panel" id="panel"></div>
+        <aside class="preview" id="preview" aria-label="Aperçu de la fiche"></aside>
+      </div>
+    </div>
+
+    <section id="bgPage" class="bgpage" aria-label="Background" hidden></section>
+  </main>
 
   <footer class="foot">
-    <p>Tout reste dans ton navigateur : rien n'est envoyé à un serveur, images comprises. Les personnages sont fictifs, la carte aussi.</p>
+    <p>Tout reste dans ton navigateur : rien n'est envoyé à un serveur, images comprises. Les personnages sont fictifs, la carte aussi. Projet de fan sans lien avec Rockstar Games.</p>
   </footer>
 </div>
 
@@ -64,9 +75,10 @@
   </div>
 </dialog>
 
-<script src="data.js?v=14"></script>
-<script src="photo.js?v=14"></script>
-<script src="describe.js?v=14"></script>
-<script src="app.js?v=14"></script>
+<script src="data.js?v=21"></script>
+<script src="photo.js?v=21"></script>
+<script src="describe.js?v=21"></script>
+<script src="background.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

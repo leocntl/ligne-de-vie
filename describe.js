@@ -34,6 +34,9 @@ window.LDV_DESCRIBE = (function () {
 
   /* ---------- vocabulaire ---------- */
   const SYN_JOB = {
+    lspd: 'Policier|Policière~ du LSPD', bcso: 'Adjoint|Adjointe~ du BCSO', sahp: 'Agent|Agente~ du San Andreas Highway Patrol', ems: "Ambulancier|Ambulancière~ de l'EMS", lsfd: 'Pompier du LSFD', weazel: 'Journaliste à Weazel News',
+    dealer: 'Trafiquant|Trafiquante~ de rue', braqueur: 'Braqueur|Braqueuse~ de petits coups', braqueuse: 'Braqueur|Braqueuse~ de petits coups', contrebandier: 'Contrebandier|Contrebandière', contrebandiere: 'Contrebandier|Contrebandière',
+    trafiquant: 'Trafiquant|Trafiquante~ de rue', trafiquante: 'Trafiquant|Trafiquante~ de rue', pilote: 'Pilote à Los Santos International', depanneur: 'Dépanneur|Dépanneuse', depanneuse: 'Dépanneur|Dépanneuse', paparazzi: 'Paparazzi à Vinewood', cascadeur: 'Cascadeur|Cascadeuse~ à Vinewood',
     flic: 'Policier|Policière', policier: 'Policier|Policière', policiere: 'Policier|Policière', cop: 'Policier|Policière',
     docteur: 'Médecin urgentiste', medecin: 'Médecin urgentiste', chirurgien: 'Médecin urgentiste', cuistot: 'Cuisinier|Cuisinière', chef: 'Cuisinier|Cuisinière',
     barman: 'Bartender', barmaid: 'Bartender', serveur: 'Serveur|Serveuse~ dans un diner', serveuse: 'Serveur|Serveuse~ dans un diner',
@@ -79,13 +82,14 @@ window.LDV_DESCRIBE = (function () {
     'etat de washington': ['Seattle, WA', 'Spokane, WA'], maryland: ['Baltimore, MD'], kentucky: ['Louisville, KY'], indiana: ['Indianapolis, IN'], nebraska: ['Omaha, NE'], wyoming: ['Cheyenne, WY'], vermont: ['Burlington, VT'], 'dakota du nord': ['Fargo, ND']
   };
   const SMALL_TOWNS = ['Asheville, NC', 'Bend, OR', 'Duluth, MN', 'Savannah, GA', 'Santa Fe, NM', 'Burlington, VT', 'Fargo, ND', 'Missoula, MT', 'Tulsa, OK', 'Spokane, WA', 'Cheyenne, WY', 'Boise, ID'];
-  const CITY_ALIAS = { 'nouvelle-orleans': 'New Orleans, LA', 'nouvelle orleans': 'New Orleans, LA', 'new york city': 'New York, NY', nyc: 'New York, NY', 'san fran': 'San Francisco, CA', philly: 'Philadelphia, PA', vegas: 'Las Vegas, NV', 'salt lake': 'Salt Lake City, UT', 'saint-louis': 'St. Louis, MO', 'st louis': 'St. Louis, MO' };
+  const CITY_ALIAS = { paleto: 'Paleto Bay (Blaine County)', 'sandy shores': 'Sandy Shores (Blaine County)', 'vinewood': 'Vinewood (Los Santos)',  'nouvelle-orleans': 'New Orleans, LA', 'nouvelle orleans': 'New Orleans, LA', 'new york city': 'New York, NY', nyc: 'New York, NY', 'san fran': 'San Francisco, CA', philly: 'Philadelphia, PA', vegas: 'Las Vegas, NV', 'salt lake': 'Salt Lake City, UT', 'saint-louis': 'St. Louis, MO', 'st louis': 'St. Louis, MO' };
 
   const SITUATIONS_RAW = [
     [/celibataire/, 'Célibataire'], [/(?<![a-z])en couple(?![a-z])/, 'En couple'], [/fianc(?:e|ee)s?(?![a-z])/, 'Fiancé|Fiancée'],
     [/c'est compliquee?(?![a-z])|relation compliquee/, "C'est compliqué"], [/(?<![a-z])veuf|veuve/, 'Veuf|Veuve']
   ];
   const LOGEMENTS_RAW = [
+    [/motel/, 'Dans un motel'], [/bateau|marina|voilier|yacht/, 'Sur un bateau, à la marina de Del Perro'],
     [/colocation|coloc(?![a-z])|colocataire/, 'En colocation'], [/mobile[- ]home|caravane|trailer/, 'Dans un mobile home'], [/residence universitaire|dortoir|dorm/, 'En résidence universitaire'],
     [/chez ses parents|chez sa mere|chez son pere|chez papa et maman/, 'Chez ses parents'], [/chez un ami|chez une amie|chez un proche|hebergee? par/, 'Chez un proche'],
     [/studio/, 'Dans un studio'], [/loft/, 'Dans un loft'], [/maison|pavillon|banlieue|villa/, 'Dans une maison de banlieue'], [/appartement|appart(?![a-z])/, 'Dans un appartement']
@@ -188,6 +192,8 @@ window.LDV_DESCRIBE = (function () {
     if (/(?<![a-z])il (?:est|a|vit|travaille|aime|veut|habite|porte|cache|n'a|ne|se|fait|adore|deteste|reve)(?![a-z])/.test(t)) mVote += 2;
     if (/(?<![a-z])(?:madame|mademoiselle|femme)(?![a-z])/.test(t)) fVote += 1;
     if (/(?<![a-z])monsieur(?![a-z])/.test(t)) mVote += 1;
+    const lead = /^\s*(un|une)(?![a-z])/.exec(t);
+    if (lead) { if (lead[1] === 'une') fVote += 1; else mVote += 1; }
     const vote = f => { if (f === 'f') fVote += 1; else if (f === 'm') mVote += 1; };
 
     /* âge */
@@ -205,9 +211,15 @@ window.LDV_DESCRIBE = (function () {
     for (const o of ORIGINS) { if (o[1].test(t)) { v.origine = o[0]; note('Origines : ' + o[0].toLowerCase()); break; } }
 
     /* ville */
-    const cities = D.VILLES.map(c => ({ c, k: norm(c.replace(/,\s*[A-Z]{2}$/, '')) }));
     const hits = [];
-    cities.forEach(x => { const re = wordRe(x.k); const m = re.exec(t); if (m) hits.push({ c: x.c, i: m.index, k: x.k }); });
+    (D.VILLES_ALL || D.VILLES).forEach(cv => {
+      const name = D.cityName ? D.cityName(cv) : cv.replace(/,\s*[A-Z]{2}$/, ''), k = norm(name);
+      // "Davis", "Burton"... sont aussi des noms de famille : un quartier n'est reconnu qu'après une préposition
+      const district = /\(/.test(cv) && !/Blaine County/.test(cv);
+      const re = district ? new RegExp("(?<![a-z])(?:a|au|aux|dans|de|du|vers|sur|pres de|quartier de|district de|habite|vit)\\s+(?:la |le |l')?" + esc(k) + "(?![a-z0-9])") : wordRe(k);
+      const m = re.exec(t);
+      if (m) hits.push({ c: cv, i: m.index, k });
+    });
     Object.keys(CITY_ALIAS).forEach(a => { const m = wordRe(a.trim()).exec(t); if (m) hits.push({ c: CITY_ALIAS[a], i: m.index, k: a }); });
     if (hits.length) {
       // "New York" contient "York" : on garde la correspondance la plus longue à chaque position
@@ -216,14 +228,20 @@ window.LDV_DESCRIBE = (function () {
       const live = uniq.find(h => /(?:vit|habite|installe|reside|travaille|base|vivant|demeure)[^.;]{0,25}$/.test(t.slice(Math.max(0, h.i - 30), h.i))) || uniq.sort((a, b) => a.i - b.i)[0];
       v.ville = live.c;
     } else {
+      // "à Los Santos" sans quartier précis : un quartier au hasard
+      const groups = D.VILLES_GROUPES || {};
+      const gk = Object.keys(groups).find(g => wordRe(g).test(t));
       const st = Object.keys(STATES).find(s => wordRe(s).test(t));
+      if (gk) v.ville = pick(groups[gk]);
+      else if (/san andreas/.test(t) && groups['los santos']) v.ville = pick(groups['los santos'].concat(groups['blaine county']));
+      else
       if (st) v.ville = pick(STATES[st]);
       else if (/petite ville|campagne|village|bled|ville de province/.test(t)) v.ville = pick(SMALL_TOWNS);
     }
     if (v.ville) note('Ville : ' + v.ville);
 
     /* métier */
-    const jobs = D.METIERS.concat(D.METIERS_ETUDIANTS, ['Retraité|Retraitée']);
+    const jobs = D.METIERS.concat(D.METIERS_ETUDIANTS, D.METIERS_GTA || [], D.METIERS_ETUDIANTS_GTA || [], ['Retraité|Retraitée']);
     let best = 0, bestList = [], bestF = null;
     jobs.forEach(raw => {
       const fs = forms(raw);
@@ -235,11 +253,21 @@ window.LDV_DESCRIBE = (function () {
         else if (x.k.length === best && bestList.indexOf(raw) < 0) bestList.push(raw);
       });
     });
-    let job = bestList.length ? pick(bestList) : null;
+    // un métier lié à un lieu (« à Paleto Bay ») n'est gardé que si c'est le lieu du personnage ; sinon on retire le lieu
+    const BOUND = /Sandy Shores|Paleto Bay|Grapeseed|Vinewood|Los Santos/;
+    const unbind = raw => {
+      const m = BOUND.exec(raw);
+      if (!m || t.indexOf(norm(m[0])) >= 0 || (v.ville && norm(v.ville).indexOf(norm(m[0])) >= 0)) return raw;
+      return raw.replace(/~?\s*(?:à|chez|au)\s+(?:Sandy Shores|Paleto Bay|Grapeseed|Vinewood|Los Santos)[^~|]*$/, '');
+    };
+    // dans l'univers GTA on préfère les métiers GTA, dans l'autre les métiers génériques
+    const gtaWorld = !!D.VILLES_GTA && D.VILLES === D.VILLES_GTA, isG = raw => (D.METIERS_GTA || []).indexOf(raw) >= 0;
+    const pref = bestList.filter(raw => isG(raw) === gtaWorld);
+    let job = bestList.length ? unbind(pick(pref.length ? pref : bestList)) : null;
     if (job && /militaire/.test(job)) {
       // "ancien militaire, mécanicien" : on retient l'autre métier, le passé militaire devient un événement marquant
       const others = jobs.filter(raw => raw.indexOf('militaire') < 0 && forms(raw).some(f => f.k.length >= 6 && wordRe(f.k.split(/[\s-]+/)[0], true).test(t)));
-      if (others.length) { job = pick(others); bestF = null; }
+      if (others.length) { const po = others.filter(raw => isG(raw) === gtaWorld); job = unbind(pick(po.length ? po : others)); bestF = null; }
     }
     if (!job || best < 6) {
       const sy = Object.keys(SYN_JOB).filter(k => k.length >= 3 && wordRe(k, true).test(t)).sort((a, b) => b.length - a.length)[0];
@@ -250,6 +278,14 @@ window.LDV_DESCRIBE = (function () {
       if (fm) job = cap(fm[1].trim());
     }
     if (job) { v.metier = job; vote(bestF); }
+
+    /* affiliation : forces de l'ordre, secours, gangs */
+    const AFF = [[/(?<![a-z])ballas?(?![a-z])/, 'Ballas'], [/(?<![a-z])families(?![a-z])|grove street/, 'Families'], [/(?<![a-z])vagos(?![a-z])/, 'Vagos'], [/marabunta/, 'Marabunta Grande'],
+      [/lost mc|(?<![a-z])lost(?![a-z]) m\.?c|motard|(?<![a-z])biker/, 'Lost MC'], [/mafia|cosa nostra|mafieu/, 'Mafia'], [/cartel|narco/, 'Cartel'], [/merryweather|mercenaire/, 'Merryweather'],
+      [/(?<![a-z])lspd(?![a-z])/, 'LSPD'], [/(?<![a-z])bcso(?![a-z])|sheriff|sherif/, 'BCSO'], [/(?<![a-z])sahp(?![a-z])|highway patrol/, 'SAHP'], [/(?<![a-z])ems(?![a-z])|ambulancier/, 'EMS'], [/lsfd|pompier/, 'LSFD']];
+    const af = AFF.find(a => a[0].test(t));
+    if (af) { v.affiliation = af[1]; note('Affiliation : ' + af[1]); }
+    else if (/(?<![a-z])gang(?![a-z])|gangster|voyou/.test(t) && D.GANGS) { v.affiliation = pick(D.GANGS); note('Affiliation : ' + v.affiliation); }
 
     /* situation, logement */
     const sit = SITUATIONS.find(s => s[0].test(t));
@@ -347,7 +383,9 @@ window.LDV_DESCRIBE = (function () {
     Object.keys(SYN_TRAIT).forEach(k => {
       if (k.length >= 4 && wordRe(norm(k), true).test(t)) {
         const raw = SYN_TRAIT[k];
-        tryAdd(raw, forms(raw).length === 2 && /e$/.test(k) ? 'f' : null);
+        // le mot ne départage les genres que s'il est exactement la forme féminine (ou masculine) de l'entrée : "taciturne" vaut pour les deux
+        const fm = forms(raw);
+        tryAdd(raw, fm.length === 2 && fm[0].k !== fm[1].k ? (norm(k) === fm[1].k ? 'f' : norm(k) === fm[0].k ? 'm' : null) : null);
       }
     });
     // un mot peut être à la fois trait et défaut dans les listes (ex. "perfectionniste") : on garde sa première liste
@@ -368,7 +406,7 @@ window.LDV_DESCRIBE = (function () {
     }
     if (peurs.length) v.peurs = peurs.slice(0, 3);
     const loisirs = [];
-    D.LOISIRS.forEach(raw => { const k = norm(raw); if (raw !== 'Mode' && wordRe(k, true).test(t)) loisirs.push(raw); });
+    D.LOISIRS.concat(D.LOISIRS_GTA || []).forEach(raw => { const k = norm(raw); if (raw !== 'Mode' && wordRe(k, true).test(t)) loisirs.push(raw); });
     Object.keys(SYN_LOISIR).forEach(k => { if (k.length >= 4 && wordRe(norm(k), true).test(t) && loisirs.indexOf(SYN_LOISIR[k]) < 0) loisirs.push(SYN_LOISIR[k]); });
     if (loisirs.length) { v.loisirs = loisirs.slice(0, 5); note('Loisirs : ' + v.loisirs.join(', ').toLowerCase()); }
 

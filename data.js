@@ -49,7 +49,7 @@ window.LDV = {
   ],
   NEUTRES: ["Alex", "Jordan", "Taylor", "Casey", "Riley", "Morgan", "Avery", "Jamie", "Sam", "Charlie", "Quinn", "Cameron", "Skyler", "Robin", "Drew", "Parker", "Rowan", "Sasha"],
 
-  VILLES: ["Los Angeles, CA", "New York, NY", "Brooklyn, NY", "Chicago, IL", "Houston, TX", "Phoenix, AZ", "Philadelphia, PA", "San Antonio, TX", "San Diego, CA", "Dallas, TX", "Austin, TX", "Seattle, WA", "Portland, OR", "Denver, CO", "Miami, FL", "Atlanta, GA", "Boston, MA", "Detroit, MI", "Minneapolis, MN", "Las Vegas, NV", "Nashville, TN", "New Orleans, LA", "Baltimore, MD", "Cleveland, OH", "Pittsburgh, PA", "St. Louis, MO", "Kansas City, MO", "Charlotte, NC", "Salt Lake City, UT", "Albuquerque, NM", "Tampa, FL", "Oakland, CA", "San Francisco, CA", "Columbus, OH", "Indianapolis, IN", "Milwaukee, WI", "Memphis, TN", "Louisville, KY", "Sacramento, CA", "Richmond, VA", "Tucson, AZ", "Boise, ID", "Anchorage, AK", "Honolulu, HI", "Asheville, NC", "Bend, OR", "Duluth, MN", "Savannah, GA", "Santa Fe, NM", "Burlington, VT", "Fargo, ND", "Missoula, MT", "Tulsa, OK", "Spokane, WA", "Omaha, NE", "Cheyenne, WY"],
+  VILLES_USA: ["Los Angeles, CA", "New York, NY", "Brooklyn, NY", "Chicago, IL", "Houston, TX", "Phoenix, AZ", "Philadelphia, PA", "San Antonio, TX", "San Diego, CA", "Dallas, TX", "Austin, TX", "Seattle, WA", "Portland, OR", "Denver, CO", "Miami, FL", "Atlanta, GA", "Boston, MA", "Detroit, MI", "Minneapolis, MN", "Las Vegas, NV", "Nashville, TN", "New Orleans, LA", "Baltimore, MD", "Cleveland, OH", "Pittsburgh, PA", "St. Louis, MO", "Kansas City, MO", "Charlotte, NC", "Salt Lake City, UT", "Albuquerque, NM", "Tampa, FL", "Oakland, CA", "San Francisco, CA", "Columbus, OH", "Indianapolis, IN", "Milwaukee, WI", "Memphis, TN", "Louisville, KY", "Sacramento, CA", "Richmond, VA", "Tucson, AZ", "Boise, ID", "Anchorage, AK", "Honolulu, HI", "Asheville, NC", "Bend, OR", "Duluth, MN", "Savannah, GA", "Santa Fe, NM", "Burlington, VT", "Fargo, ND", "Missoula, MT", "Tulsa, OK", "Spokane, WA", "Omaha, NE", "Cheyenne, WY"],
 
   METIERS: ["Infirmier|Infirmière", "Infirmier|Infirmière~ aux urgences", "Aide-soignant|Aide-soignante", "Ambulancier|Ambulancière~ (EMT)", "Pompier", "Policier|Policière", "Adjoint|Adjointe~ du shérif", "Détective", "Agent|Agente~ de sécurité", "Ancien|Ancienne~ militaire", "Barista", "Serveur|Serveuse~ dans un diner", "Bartender","Cuisinier|Cuisinière", "Propriétaire~ d'un food truck", "Propriétaire~ d'un diner", "Gérant|Gérante~ de bar", "Vendeur|Vendeuse~ en magasin", "Caissier|Caissière", "Gérant|Gérante~ de supermarché", "Chauffeur|Chauffeuse~ Uber", "Camionneur|Camionneuse", "Conducteur|Conductrice~ de bus", "Facteur|Factrice", "Livreur|Livreuse~ de repas", "Mécanicien|Mécanicienne", "Électricien|Électricienne", "Plombier|Plombière", "Réparateur|Réparatrice~ de climatisation (HVAC)", "Ouvrier|Ouvrière~ du bâtiment", "Ouvrier|Ouvrière~ d'usine", "Technicien|Technicienne~ de maintenance", "Éleveur|Éleveuse~ de bétail", "Gardien|Gardienne~ de parc national", "Ingénieur|Ingénieure~ logiciel", "Développeur|Développeuse~ web", "Chargé|Chargée~ de marketing", "Comptable", "Avocat|Avocate", "Assistant|Assistante~ juridique", "Commercial|Commerciale", "Journaliste", "Photographe", "Graphiste", "Musicien|Musicienne", "Acteur|Actrice~ en devenir", "Tatoueur|Tatoueuse", "Coiffeur|Coiffeuse", "Enseignant|Enseignante~ en école primaire", "Professeur|Professeure~ au lycée", "Coach de basket au lycée", "Éducateur|Éducatrice~ de jeunes enfants", "Bibliothécaire", "Médecin urgentiste", "Pharmacien|Pharmacienne", "Dentiste", "Psychologue", "Vétérinaire", "Kinésithérapeute", "Assistant|Assistante~ de service social", "Pasteur|Pasteure", "Pilote de ligne", "Freelance", "En reconversion professionnelle", "Sans emploi pour le moment"],
   METIERS_ETUDIANTS: ["Étudiant|Étudiante~ en droit", "Étudiant|Étudiante~ en médecine", "Étudiant|Étudiante~ en informatique", "Étudiant|Étudiante~ en école de commerce", "Étudiant|Étudiante~ en communication", "Étudiant|Étudiante~ en psychologie", "Étudiant|Étudiante~ en sciences infirmières", "Étudiant|Étudiante~ en ingénierie", "Étudiant|Étudiante~ en art et design", "Étudiant|Étudiante~ en community college", "Étudiant|Étudiante~ dans l'équipe de football de la fac"],
@@ -203,3 +203,73 @@ window.LDV = {
     "Se sont connus un soir de match, au bar du coin."
   ]
 };
+
+/* ---------- univers GTA RP : San Andreas, Vice City, Liberty City ---------- */
+(function (D) {
+  // lieux : "Quartier (Ville)" ; les villes entières sont écrites seules
+  D.VILLES_GTA = [
+    "Vinewood (Los Santos)", "Mission Row (Los Santos)", "Davis (Los Santos)", "Rockford Hills (Los Santos)", "Vespucci (Los Santos)", "Del Perro (Los Santos)",
+    "Mirror Park (Los Santos)", "Strawberry (Los Santos)", "La Mesa (Los Santos)", "Little Seoul (Los Santos)", "Chamberlain Hills (Los Santos)", "Downtown (Los Santos)",
+    "Burton (Los Santos)", "Vinewood Hills (Los Santos)", "Banning (Los Santos)", "El Burro Heights (Los Santos)", "Cypress Flats (Los Santos)", "Rancho (Los Santos)",
+    "Sandy Shores (Blaine County)", "Paleto Bay (Blaine County)", "Grapeseed (Blaine County)", "Harmony (Blaine County)", "Mount Chiliad (Blaine County)",
+    "Ocean Beach (Vice City)", "Little Havana (Vice City)", "Downtown (Vice City)", "Vice Point (Vice City)", "Washington Beach (Vice City)", "Little Haiti (Vice City)",
+    "Broker (Liberty City)", "Algonquin (Liberty City)", "Bohan (Liberty City)", "Dukes (Liberty City)", "Alderney (Liberty City)", "Hove Beach (Liberty City)",
+    "San Fierro", "Las Venturas"
+  ];
+  // noms de villes entières reconnus dans une description (clé normalisée -> quartiers possibles)
+  D.VILLES_GROUPES = {
+    'los santos': D.VILLES_GTA.filter(x => /\(Los Santos\)/.test(x)), 'blaine county': D.VILLES_GTA.filter(x => /\(Blaine County\)/.test(x)),
+    'vice city': D.VILLES_GTA.filter(x => /\(Vice City\)/.test(x)), 'liberty city': D.VILLES_GTA.filter(x => /\(Liberty City\)/.test(x))
+  };
+  D.VILLES_ALL = D.VILLES_USA.concat(D.VILLES_GTA);
+  D.VILLES = D.VILLES_GTA;
+
+  // "Davis (Los Santos)" -> "Davis" ; "Downtown (Vice City)" -> "Downtown Vice City" ; "Austin, TX" -> "Austin"
+  D.cityName = function (v) {
+    v = String(v || '');
+    const m = v.match(/^(.*?)\s*\((.*)\)$/);
+    if (m) return m[1] === 'Downtown' ? 'Downtown ' + m[2] : m[1];
+    return v.replace(/,\s*[A-Z]{2}$/, '');
+  };
+
+  D.METIERS_GTA = [
+    "Policier|Policière~ du LSPD", "Adjoint|Adjointe~ du BCSO", "Agent|Agente~ du San Andreas Highway Patrol", "Ambulancier|Ambulancière~ de l'EMS", "Pompier du LSFD",
+    "Médecin à Pillbox Hill Medical", "Infirmier|Infirmière~ à Pillbox Hill", "Mécanicien|Mécanicienne~ chez Los Santos Customs", "Mécanicien|Mécanicienne~ à Sandy Shores",
+    "Chauffeur|Chauffeuse~ pour Downtown Cab Co.", "Dépanneur|Dépanneuse", "Journaliste à Weazel News", "Avocat|Avocate~ à Los Santos", "Vendeur|Vendeuse~ chez Premium Deluxe Motorsport",
+    "Bartender au Bahama Mamas", "Serveur|Serveuse~ chez Up-n-Atom Burger", "Livreur|Livreuse~ pour PostOP", "Agent|Agente~ de sécurité chez Gruppe Sechs",
+    "Pilote à Los Santos International", "Pêcheur|Pêcheuse~ à Paleto Bay", "Bûcheron|Bûcheronne~ à Paleto Bay", "Éleveur|Éleveuse~ à Grapeseed", "Fermier|Fermière~ à Grapeseed",
+    "Gérant|Gérante~ d'une supérette 24/7", "Cascadeur|Cascadeuse~ à Vinewood", "Acteur|Actrice~ en devenir à Vinewood", "Cuisinier|Cuisinière~ chez Pizza This",
+    "Coiffeur|Coiffeuse~ chez Herr Kutz", "Tatoueur|Tatoueuse~ chez Blazing Tattoos", "Ouvrier|Ouvrière~ du port de Los Santos", "Employé|Employée~ de la raffinerie",
+    "Ranger du Blaine County", "Animateur|Animatrice~ sur Non-Stop-Pop FM", "Paparazzi à Vinewood", "Contrebandier|Contrebandière", "Braqueur|Braqueuse~ de petits coups",
+    "Trafiquant|Trafiquante~ de rue"
+  ];
+  D.METIERS_ETUDIANTS_GTA = ["Étudiant|Étudiante~ à l'université de Los Santos", "Étudiant|Étudiante~ en droit à Los Santos", "Étudiant|Étudiante~ en école de cinéma à Vinewood", "Étudiant|Étudiante~ en médecine à Pillbox Hill"];
+  D.LOISIRS_GTA = ["Courses de rue", "Tuning", "Plage à Vespucci", "Pêche à Paleto", "Moto", "Casino", "Karting", "Chasse dans le Blaine County", "Golf à Richman", "Randonnée au mont Chiliad", "Parachutisme", "Plongée"];
+  D.LOGEMENTS_GTA = ["Dans un motel", "Dans une villa de Vinewood Hills", "Sur un bateau, à la marina de Del Perro", "Dans un appartement de Vespucci", "Dans une caravane, en plein désert"];
+  D.AFFILIATIONS = ["LSPD", "BCSO", "SAHP", "EMS", "LSFD", "Ballas", "Families", "Vagos", "Marabunta Grande", "Lost MC", "Mafia", "Cartel", "Merryweather"];
+  // affiliation déduite d'un métier : "Policier du LSPD" -> LSPD
+  D.AFFIL_DE_METIER = [[/LSPD/, 'LSPD'], [/BCSO|Ranger du Blaine/, 'BCSO'], [/Highway Patrol/, 'SAHP'], [/EMS|Pillbox/, 'EMS'], [/LSFD/, 'LSFD']];
+  D.GANGS = ['Ballas', 'Families', 'Vagos', 'Marabunta Grande', 'Lost MC', 'Mafia', 'Cartel'];
+  // zone d'un lieu : 'ls' (Los Santos), 'bc' (Blaine County), sinon 'other' (Vice City, Liberty City, San Fierro, Las Venturas...)
+  D.zoneOf = function (v) {
+    v = String(v || '');
+    return /\(Los Santos\)/.test(v) ? 'ls' : /\(Blaine County\)/.test(v) ? 'bc' : 'other';
+  };
+  // métiers GTA qui ont du sens à l'endroit où vit le personnage (la police de Los Santos reste à Los Santos...)
+  D.metiersGta = function (ville) {
+    const z = D.zoneOf(ville);
+    return D.METIERS_GTA.filter(j => {
+      const place = /Sandy Shores|Paleto Bay|Grapeseed/.exec(j);
+      if (place) return String(ville).indexOf(place[0]) >= 0;
+      if (/BCSO|Blaine/.test(j)) return z === 'bc';
+      if (/LSPD|EMS|LSFD|Pillbox|Los Santos|Vinewood|Weazel|Downtown Cab|Bahama|Premium Deluxe|raffinerie|Non-Stop/.test(j)) return z === 'ls';
+      if (/Up-n-Atom|Pizza This|Herr Kutz|Blazing|PostOP|Gruppe Sechs|Highway Patrol|supérette/.test(j)) return z !== 'other';
+      return true;
+    });
+  };
+  D.etudiantsGta = function (ville) { return D.zoneOf(ville) === 'ls' ? D.METIERS_ETUDIANTS_GTA : D.METIERS_ETUDIANTS; };
+  // métiers qui demandent des années d'études ou d'ancienneté
+  D.JOBS_ADULT = /Médecin|Avocat|Policier|Policière|Adjoint|Highway Patrol|Ambulanci|Pompier|Pilote|Ranger|Gérant|Ingénieur|Professeur|Chirurgien|Journaliste|Infirmi/;
+  // métiers dont un gang peut faire partie du quotidien (un avocat ou un médecin n'est pas tiré au sort dans un gang)
+  D.GANG_JOBS = /Contrebandi|Braqueu|Trafiquan|Mécanicien|Dépanneu|Livreu|Serveu|Bartender|Ouvrier|Sans emploi|Cascadeu|Chauffeu|Vendeu|Cuisinier|sécurité|Pêcheu|Tatoueu|Coiffeu|Employé|Caissi|Plongeu/;
+})(window.LDV);

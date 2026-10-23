@@ -36,6 +36,7 @@
       unlock: s('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-1.5"/>'),
       trash: s('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
       plus: s('<path d="M12 5v14M5 12h14"/>'),
+      minus: s('<path d="M5 12h14"/>'),
       copy: s('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
       left: s('<path d="M15 6l-6 6 6 6"/>'),
       right: s('<path d="M9 6l6 6-6 6"/>'),
@@ -85,7 +86,7 @@
     const map = {
       prenom: disp(v.prenom, f) || 'Le personnage',
       nom: disp(v.nom, f),
-      ville: (v.ville || 'sa ville').replace(/,\s*[A-Z]{2}$/, ''),
+      ville: D.cityName(v.ville) || 'sa ville',
       metier: lc(disp(v.metier, f)) || 'un métier',
       logement: lc(v.logement) || 'dans un petit logement',
       hobby: lc(first) || 'la musique',
@@ -125,6 +126,18 @@
     };
   }
 
+  // les choix peuvent dépendre de l'univers : opts est alors une fonction
+  const optsOf = d => (typeof d.opts === 'function' ? d.opts() : d.opts).map(o => (typeof o === 'string' ? { v: o } : o));
+  const W = () => store.world;
+  const logementList = () => (W() === 'gta' ? D.LOGEMENTS.concat(D.LOGEMENTS_GTA) : D.LOGEMENTS);
+  const loisirList = () => (W() === 'gta' ? D.LOISIRS.concat(D.LOISIRS_GTA) : D.LOISIRS);
+  const metierList = () => (W() === 'gta' ? D.METIERS_GTA.concat(D.METIERS) : D.METIERS);
+  function setWorld(w) {
+    store.world = w === 'usa' ? 'usa' : 'gta';
+    D.VILLES = store.world === 'gta' ? D.VILLES_GTA : D.VILLES_USA;
+    ui.exIdx = null;
+  }
+
   /* ---------- définition des champs ---------- */
   // t : type de champ. gen : tirage au sort (absent = pas de dé). w : "half" pour deux colonnes.
   const F = {
@@ -134,14 +147,25 @@
     age: { t: 'number', label: 'Âge', min: 14, max: 100, unit: 'ans', w: 'half', gen: () => { const r = Math.random(); return r < 0.25 ? rint(18, 25) : r < 0.7 ? rint(26, 40) : r < 0.92 ? rint(41, 60) : rint(61, 82); } },
     genre: { t: 'chips', label: 'Genre', opts: D.GENRES, w: 'half', gen: () => pick(D.GENRES) },
     origine: { t: 'chips', label: 'Origines', opts: D.ORIGINES.map(o => o.label), custom: true, gen: () => wpick(D.ORIGINES.map(o => [o.label, o.poids || 1])) },
-    ville: { t: 'text', label: 'Ville', ph: 'Austin, TX', list: 'villes', max: 50, w: 'half', gen: () => pick(D.VILLES) },
+    ville: { t: 'text', label: 'Ville ou quartier', ph: () => (W() === 'gta' ? 'Davis (Los Santos)' : 'Austin, TX'), list: 'villes', max: 50, w: 'half', gen: () => pick(D.VILLES) },
     metier: {
       t: 'text', label: 'Métier ou occupation', ph: 'Infirmière', list: 'metiers', max: 70, w: 'half',
       gen: c => {
         const a = c.v.age || 30;
-        if (a <= 24 && Math.random() < 0.55) return pick(D.METIERS_ETUDIANTS);
+        const gta = W() === 'gta', ok = list => { const l = a >= 23 ? list : list.filter(j => !D.JOBS_ADULT.test(j)); return l.length ? l : list; };
+        if (a <= 24 && Math.random() < 0.55) return pick(gta && Math.random() < 0.6 ? D.etudiantsGta(c.v.ville) : D.METIERS_ETUDIANTS);
         if (a >= 64 && Math.random() < 0.5) return 'Retraité|Retraitée';
-        return pick(D.METIERS);
+        return pick(ok(gta && Math.random() < 0.6 ? D.metiersGta(c.v.ville) : D.METIERS));
+      }
+    },
+    affiliation: {
+      t: 'chips', label: 'Affiliation', opts: D.AFFILIATIONS, custom: true, world: 'gta',
+      gen: c => {
+        const m = disp(c.v.metier, 'm');
+        if (/^(?:Étudiant|Alternant|Retrait)/.test(m) || (c.v.age || 30) < 18) return '';
+        const hit = D.AFFIL_DE_METIER.find(x => x[0].test(m));
+        if (hit) return hit[1];
+        return Math.random() < 0.28 && (c.v.age || 30) <= 45 && (!m || D.GANG_JOBS.test(m)) ? pick(D.GANGS) : '';
       }
     },
     situation: {
@@ -153,12 +177,12 @@
       }
     },
     logement: {
-      t: 'chips', label: 'Logement', opts: D.LOGEMENTS, custom: true,
+      t: 'chips', label: 'Logement', opts: logementList, custom: true,
       gen: c => {
         const a = c.v.age || 30;
         if (a < 22) return pick(['Chez ses parents', 'En résidence universitaire', 'En colocation', 'Dans un studio']);
         const young = a < 30;
-        return pick(D.LOGEMENTS.filter(l => l !== 'En résidence universitaire' && (young ? Math.random() < 0.25 || l !== 'Chez ses parents' : l !== 'Chez ses parents')));
+        return pick(logementList().filter(l => l !== 'En résidence universitaire' && (young ? Math.random() < 0.25 || l !== 'Chez ses parents' : l !== 'Chez ses parents')));
       }
     },
 
@@ -181,7 +205,7 @@
     qualites: { t: 'multi', label: 'Qualités', opts: D.QUALITES, max: 3, custom: true, gen: () => pickN(D.QUALITES, rint(2, 3)) },
     defauts: { t: 'multi', label: 'Défauts', opts: D.DEFAUTS, max: 3, custom: true, gen: () => pickN(D.DEFAUTS, rint(2, 3)) },
     peurs: { t: 'multi', label: 'Peurs', opts: D.PEURS, max: 3, custom: true, gen: () => pickN(D.PEURS, rint(1, 2)) },
-    loisirs: { t: 'multi', label: 'Loisirs et passions', opts: D.LOISIRS, max: 5, custom: true, gen: () => pickN(D.LOISIRS, rint(2, 4)) },
+    loisirs: { t: 'multi', label: 'Loisirs et passions', opts: loisirList, max: 5, custom: true, gen: () => pickN(loisirList(), rint(2, 4)) },
     motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(pick(D.MOTIVATIONS), c) },
     manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => pickN(D.MANIES, 2).map(s => fill(s, c)).join(' ') },
     secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(pick(D.SECRETS), c) },
@@ -212,7 +236,7 @@
     { id: 'identite', short: 'Identité', title: 'Identité', color: '--l1', lede: 'Qui est ce personnage ?', groups: [
       { title: 'Qui est-ce ?', keys: ['prenom', 'nom', 'age', 'genre', 'origine'] },
       { title: 'Au quotidien', keys: ['ville', 'metier'] },
-      { more: true, keys: ['surnom', 'situation', 'logement'] }] },
+      { more: true, keys: ['surnom', 'situation', 'logement', 'affiliation'] }] },
     { id: 'apparence', short: 'Apparence', title: 'Apparence', color: '--l2', lede: 'Son allure et son image.', groups: [
       { keys: ['photo'], bare: true },
       { title: 'Gabarit', keys: ['taille', 'corpulence'] },
@@ -228,14 +252,19 @@
     { id: 'fiche', short: 'Fiche', title: 'Fiche', color: '--l6', lede: 'Relis, copie, partage.', groups: [] }
   ];
   STEPS.forEach(st => { st.fields = st.groups.reduce((acc, g) => acc.concat(g.keys), []); });
-  const ORDER = ['genre', 'origine', 'prenom', 'nom', 'age', 'ville', 'metier', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel'];
-
-  const optsOf = d => d.opts.map(o => (typeof o === 'string' ? { v: o } : o));
+  const ORDER = ['genre', 'origine', 'prenom', 'nom', 'age', 'ville', 'metier', 'affiliation', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel'];
 
   /* ---------- modèle et stockage ---------- */
+  // background : parties affichées (on), textes par partie (t). Les textes des parties masquées sont gardés.
+  const BG = window.LDV_BG;
+  const BG_ALL = BG.KEYS.concat(['libre']);
+  const BG_TITLE = Object.assign({ libre: 'Texte libre' }, BG.TITLES);
+  const BG_LINE = { origines: '--l1', jeunesse: '--l2', parcours: '--l3', tournant: '--l6', aujourdhui: '--l4', secret: '--l5', libre: '--l1' };
+  const bgParts = c => c.bg.on.filter(k => (c.bg.t[k] || '').trim()).map(k => [BG_TITLE[k], c.bg.t[k].trim()]);
+
   function blank() {
     return {
-      id: newId(), created: Date.now(), updated: Date.now(), example: false, locks: {}, rel: [], photo: { src: '' },
+      id: newId(), created: Date.now(), updated: Date.now(), example: false, locks: {}, rel: [], photo: { src: '' }, bg: { on: [], t: {}, seen: false },
       v: { av_coupe: 'court', av_peau: 2, av_cheveux: 2, av_yeux: 1, av_pilo: 'non', av_lunettes: 'non', av_taches: 'non' }
     };
   }
@@ -261,14 +290,21 @@
       const src = typeof ph.src === 'string' && ph.src.length < 900000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(ph.src) ? ph.src : '';
       c.photo.src = src;
     }
+    const rb = raw && raw.bg;
+    if (rb && typeof rb === 'object') {
+      const t = rb.t && typeof rb.t === 'object' ? rb.t : {};
+      BG_ALL.forEach(k => { if (typeof t[k] === 'string' && t[k].trim()) c.bg.t[k] = t[k].slice(0, 6000); });
+      if (Array.isArray(rb.on)) c.bg.on = BG_ALL.filter(k => rb.on.indexOf(k) >= 0 && c.bg.t[k]);
+      c.bg.seen = !!rb.seen || c.bg.on.length > 0;
+    }
     if (raw && raw.locks && typeof raw.locks === 'object') for (const k of Object.keys(raw.locks)) if (F[k]) c.locks[k] = true;
     return c;
   }
 
-  let store = { cur: null, order: [], chars: {} };
+  let store = { cur: null, order: [], chars: {}, world: 'gta' };
   let storageOK = true;
   // ph : image en cours de cadrage (élément image, taille, zoom, décalage) pour le personnage cid
-  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, descText: '', desc: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
+  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, exIdx: null, bgPrev: {}, bgArm: false, descText: '', desc: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
   const C = () => store.chars[store.cur];
 
   function loadStore() {
@@ -276,6 +312,7 @@
       const raw = localStorage.getItem(KEY);
       if (!raw) return;
       const s = JSON.parse(raw);
+      if (s && s.world === 'usa') store.world = 'usa';
       if (!s || !s.chars || !Array.isArray(s.order)) return;
       s.order.forEach(id => {
         const x = s.chars[id];
@@ -307,7 +344,7 @@
     else c.v[key] = val;
   }
   function genKeys(c, keys) {
-    ORDER.filter(k => keys.indexOf(k) >= 0 && !c.locks[k] && F[k].gen).forEach(k => setVal(c, k, F[k].gen(c)));
+    ORDER.filter(k => keys.indexOf(k) >= 0 && !c.locks[k] && F[k].gen && (!F[k].world || F[k].world === W())).forEach(k => setVal(c, k, F[k].gen(c)));
   }
 
   /* ---------- fiche : contenu et exports ---------- */
@@ -329,12 +366,13 @@
     const add = (title, rows) => { rows = rows.filter(r => r[1]); if (rows.length) groups.push({ title, rows }); };
     add('Identité', [
       ['Âge', v.age ? v.age + ' ans' : ''], ['Genre', v.genre],
-      ['Ville', v.ville], ['Métier', d('metier')], ['Origines', v.origine], ['Situation', d('situation')], ['Logement', v.logement]
+      ['Ville', v.ville], ['Métier', d('metier')], ['Affiliation', v.affiliation], ['Origines', v.origine], ['Situation', d('situation')], ['Logement', v.logement]
     ]);
     add('Apparence', [['Allure', allure(c)], ['Style', L('style')], ['Signes distinctifs', v.signes], ['Voix et attitude', v.attitude]]);
     add('Personnalité', [['Traits', L('traits')], ['Qualités', L('qualites')], ['Défauts', L('defauts')], ['Peurs', L('peurs')], ['Loisirs', L('loisirs')], ['Motivation', v.motivation], ['Manies', v.manies], ['Secret', v.secret]]);
     add('Histoire', [['Enfance', v.enfance], ['Parcours', v.parcours], ['Événement marquant', d('evenement')], ['Aujourd\'hui', v.actuel], ['Accroches de RP', v.accroches], ['Notes', v.notes]]);
     add('Relations', c.rel.filter(r => r.nom || r.note).map(r => [(r.nom || '?') + (r.lien ? ' (' + r.lien + ')' : ''), r.note || '–']));
+    add('Background', bgParts(c));
     return {
       first: d('prenom'), last: d('nom'), nick: v.surnom || '',
       name: [d('prenom'), v.surnom ? '« ' + v.surnom + ' »' : '', d('nom')].filter(Boolean).join(' '),
@@ -463,7 +501,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     const label = textual ? `<label class="lbl" id="l-${key}" for="f-${key}">${esc(d.label)}</label>` : `<span class="lbl" id="l-${key}">${esc(d.label)}${count}</span>`;
     let ctl = '';
     if (d.t === 'text') {
-      ctl = `<input class="in" id="f-${key}" data-key="${key}" type="text" value="${esc(disp(v, f))}" placeholder="${esc(d.ph || '')}" maxlength="${d.max || 80}" autocomplete="off"${d.list ? ` list="dl-${d.list}"` : ''}>`;
+      ctl = `<input class="in" id="f-${key}" data-key="${key}" type="text" value="${esc(disp(v, f))}" placeholder="${esc((typeof d.ph === 'function' ? d.ph() : d.ph) || '')}" maxlength="${d.max || 80}" autocomplete="off"${d.list ? ` list="dl-${d.list}"` : ''}>`;
     } else if (d.t === 'number') {
       ctl = `<div class="num${key === 'taille' ? ' long' : ''}"><input class="in" id="f-${key}" data-key="${key}" type="number" inputmode="numeric" min="${d.min}" max="${d.max}" value="${v == null ? '' : esc(v)}"><span class="unit"${key === 'taille' ? ' id="u-taille"' : ''}>${key === 'taille' && v ? d.unit + ' · ' + imp(v) : d.unit}</span></div>`;
     } else if (d.t === 'area') {
@@ -513,8 +551,11 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
 <div class="btnrow"><label class="lbl inline" for="ctarget">Insérer dans</label><select class="in short" id="ctarget"><option value="enfance">Origines et enfance</option><option value="parcours">Études et parcours</option><option value="actuel">Aujourd'hui</option><option value="accroches">Accroches de RP</option><option value="notes">Notes libres</option></select><button type="button" class="btn" data-act="insertReply">Insérer</button></div>
 </div></details>`;
   }
+  const worldLine = () => (W() === 'gta'
+    ? 'contemporain et réaliste, sans surnaturel, qui se déroule dans l\'univers de GTA (San Andreas : Los Santos, Blaine County, ou bien Vice City ou Liberty City). Les lieux, les services (LSPD, BCSO, EMS, LSFD) et les gangs doivent rester cohérents avec cet univers.'
+    : 'contemporain et réaliste, sans surnaturel, qui se déroule aux États-Unis.');
   function buildPrompt(c, task) {
-    return 'Je crée un personnage pour un jeu de rôle (RP) contemporain et réaliste, sans surnaturel, qui se déroule aux États-Unis. Voici sa fiche actuelle :\n\n' + toText(c, false) +
+    return 'Je crée un personnage pour un jeu de rôle (RP) ' + worldLine() + ' Voici sa fiche actuelle :\n\n' + toText(c, false) +
       '\n\nDemande : ' + TASKS[task] + '\n\nRéponds en français, avec un ton naturel et sans titres superflus, de façon à ce que je puisse copier ton texte tel quel dans ma fiche.';
   }
 
@@ -528,15 +569,41 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
 <div class="box"><h3>Garder et partager</h3>
 <div class="btnrow"><button type="button" class="btn" data-act="copyLink">${ICON.link} Lien de partage</button><button type="button" class="btn" data-act="dlJson">${ICON.down} Fichier .json</button>${c.photo.src ? `<button type="button" class="btn" data-act="dlPortrait">${ICON.down} Image (.jpg)</button>` : ''}</div>
 <p class="hint">Le lien contient toute la fiche, sans serveur.${local ? ' Il ne marchera qu\'une fois le site publié.' : ''}</p></div>
+<div class="box"><h3>Background</h3><p class="hint">Rédige l'histoire de ce personnage à partir de sa fiche.</p><div class="btnrow"><a class="btn" href="#background">${ICON.card} Rédiger son background</a></div></div>
 <div class="box"><h3>Ajouter un personnage</h3><div class="btnrow"><button type="button" class="btn" data-act="openImport">${ICON.up} Importer une fiche</button><button type="button" class="btn" data-act="newBlank">${ICON.plus} Fiche vierge</button></div></div>
 </div></div>`;
   }
   /* ---------- décrire le personnage en une phrase ---------- */
-  const DESC_EXAMPLES = [
-    ['Infirmière à Chicago', 'Une infirmière de 34 ans à Chicago, rousse aux yeux verts, sarcastique, avec une cicatrice sur la main'],
-    ['Ancien militaire au Texas', 'Un ancien militaire de 45 ans, barbu, taciturne, mécanicien au Texas. Il veut ouvrir son propre garage'],
-    ['Étudiante à Los Angeles', 'Étudiante en droit de 22 ans, latino, ambitieuse, lunettes rondes, vit en colocation à Los Angeles']
-  ];
+  const EXAMPLES = {
+    gta: [
+      ['Policier à Mission Row', 'Un policier du LSPD de 38 ans à Mission Row, sérieux et têtu, divorcé, avec une cicatrice au sourcil. Il veut devenir sergent'],
+      ['Mécano à Sandy Shores', 'Un mécanicien de 45 ans à Sandy Shores, barbu, taciturne, qui vit dans un mobile home. Il rêve de quitter le Blaine County'],
+      ['Pêcheuse à Paleto Bay', 'Une pêcheuse de 29 ans à Paleto Bay, rousse, franche et débrouillarde, qui a peur de l\'eau profonde'],
+      ['Families à Davis', 'Un homme de 24 ans de Davis, membre des Families, charmeur et impulsif, avec un tatouage sur le cou'],
+      ['Étudiante à Vice City', 'Étudiante en droit de 22 ans à Vice City, latino, ambitieuse, lunettes rondes, vit en colocation'],
+      ['Journaliste à Liberty City', 'Une journaliste de 33 ans à Liberty City, curieuse et sarcastique, brune. Son meilleur ami Marcus est policier'],
+      ['Ambulancière à Vespucci', 'Une ambulancière de l\'EMS de 31 ans à Vespucci, calme et courageuse, célibataire, adore la plage'],
+      ['Motard du Lost MC', 'Un motard du Lost MC de 41 ans à Sandy Shores, barbu, costaud, loyal mais colérique, cache une dette'],
+      ['Avocate à Rockford Hills', 'Une avocate de 36 ans à Rockford Hills, élégante, perfectionniste, divorcée. Elle rêve de devenir juge'],
+      ['Éleveur à Grapeseed', 'Un éleveur de 52 ans à Grapeseed, moustachu, têtu, veuf, avec un chapeau de cowboy'],
+      ['Pompier à Mirror Park', 'Un pompier du LSFD de 29 ans à Mirror Park, athlétique, drôle et loyal, vit en colocation'],
+      ['Actrice à Vinewood', 'Une actrice en devenir de 26 ans à Vinewood, blonde, charmeuse, sociable, serveuse le soir']
+    ],
+    usa: [
+      ['Infirmière à Chicago', 'Une infirmière de 34 ans à Chicago, rousse aux yeux verts, sarcastique, avec une cicatrice sur la main'],
+      ['Ancien militaire au Texas', 'Un ancien militaire de 45 ans, barbu, taciturne, mécanicien au Texas. Il veut ouvrir son propre garage'],
+      ['Étudiante à Los Angeles', 'Étudiante en droit de 22 ans, latino, ambitieuse, lunettes rondes, vit en colocation à Los Angeles'],
+      ['Pompier à Atlanta', 'Un pompier de 35 ans à Atlanta, noir, costaud, loyal et drôle, marié, vit dans une maison de banlieue'],
+      ['Barman à Nashville', 'Un barman de 28 ans à Nashville, blond, charmeur, fêtard. Il rêve de devenir chanteur'],
+      ['Retraitée à Phoenix', 'Une retraitée de 68 ans à Phoenix, cheveux blancs, attentionnée, veuve, adore le jardinage']
+    ]
+  };
+  const exPool = () => EXAMPLES[W()];
+  function exShown() {
+    const n = exPool().length;
+    if (!ui.exIdx || ui.exIdx.some(i => i >= n)) ui.exIdx = pickN(Array.from({ length: n }, (_, i) => i), Math.min(4, n));
+    return ui.exIdx;
+  }
   const isUntouched = c => ORDER.every(k => !hasValue(c, k)) && !c.photo.src;
   function descHTML(c) {
     const res = ui.desc && ui.desc.cid === c.id ? ui.desc : null;
@@ -547,7 +614,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       : '<div class="desc-result"><p><b>Rien de reconnu.</b> Ajoute l\'âge, le métier, la ville, l\'apparence ou le caractère.</p></div>';
     return `<details class="group describe" data-more="describe"${open ? ' open' : ''}><summary>${ICON.spark}<span>Décrire le personnage que tu imagines</span></summary>
 <div class="describe-body"><textarea class="in" id="descText" rows="3" maxlength="800" placeholder="Ex. : une infirmière de 34 ans à Chicago, rousse, sarcastique, avec une cicatrice sur la main">${esc(ui.descText)}</textarea>
-<div class="btnrow"><button type="button" class="btn primary" data-act="descApply">${ICON.spark} Créer le personnage</button><span class="hint">ou essaie :</span>${DESC_EXAMPLES.map((x, i) => `<button type="button" class="chip" data-act="descEx" data-i="${i}">${esc(x[0])}</button>`).join('')}</div>${result}</div></details>`;
+<div class="btnrow"><button type="button" class="btn primary" data-act="descApply">${ICON.spark} Créer le personnage</button><span class="hint">ou essaie :</span>${exShown().map(i => `<button type="button" class="chip" data-act="descEx" data-i="${i}">${esc(exPool()[i][0])}</button>`).join('')}<button type="button" class="chip more-chip" data-act="descMore">Autres idées</button></div>${result}</div></details>`;
   }
   function describeApply() {
     const text = ui.descText.trim();
@@ -556,6 +623,8 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     try { r = DS.parse(text, D); } catch (e) { r = { v: {}, rel: [], found: [] }; }
     const cur = C(), reuse = cur.example || isUntouched(cur), n = blank();
     Object.assign(n.v, r.v);
+    if (W() !== 'gta') delete n.v.affiliation;
+    const found = W() === 'gta' ? r.found : r.found.filter(x => !/^Affiliation/.test(x));
     n.rel = r.rel.slice();
     // un âge cohérent avec le métier annoncé quand la phrase n'en donne pas
     if (!n.v.age && n.v.metier) {
@@ -574,16 +643,21 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     Object.keys(r.v).forEach(k => { if (F[k] && F[k].gen && k.indexOf('av_') !== 0) n.locks[k] = true; });
     if (n.rel.length) n.locks.rel = true;
     genKeys(n, ORDER);
+    // une description sans gang ne fait entrer personne dans un gang : seule l'affiliation du métier (police, secours) est reprise
+    if (W() === 'gta' && !r.v.affiliation) {
+      const hit = n.v.metier && !/^(?:Étudiant|Alternant|Retrait)/.test(disp(n.v.metier, 'm')) && D.AFFIL_DE_METIER.find(x => x[0].test(disp(n.v.metier, 'm')));
+      n.v.affiliation = hit ? hit[1] : '';
+    }
     Object.keys(r.v).forEach(k => { if (k.indexOf('av_') === 0) n.v[k] = r.v[k]; });
     n.v.notes = ('Description de départ : ' + text).slice(0, 1500);
     // dernière vérification : longueurs et types de chaque champ, comme pour un import
     const fin = clean({ v: n.v, rel: n.rel });
     fin.example = false; fin.updated = Date.now();
     if (reuse) { fin.id = cur.id; fin.created = cur.created; store.chars[cur.id] = fin; ui.step = 0; } else addChar(fin);
-    ui.desc = { cid: fin.id, found: r.found.slice() };
+    ui.desc = { cid: fin.id, found: found.slice() };
     renderAll(); scheduleSave();
-    $('#line').scrollIntoView({ block: 'start' });
-    toast(r.found.length ? 'Personnage créé à partir de ta description.' : 'Personnage tiré au sort : rien n\'a été reconnu.');
+    if (ui.view === 'creator') $('#line').scrollIntoView({ block: 'start' }); else toCreator();
+    toast(found.length ? 'Personnage créé à partir de ta description.' : 'Personnage tiré au sort : rien n\'a été reconnu.');
   }
 
   const hasValue = (c, k) => {
@@ -594,10 +668,11 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     return Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== '';
   };
   function groupHTML(g, c, s) {
-    const inner = g.keys.map(k => fieldHTML(k, c)).join('');
+    const keys = g.keys.filter(k => !F[k].world || F[k].world === W());
+    const inner = keys.map(k => fieldHTML(k, c)).join('');
     if (g.more) {
-      const n = g.keys.filter(k => hasValue(c, k)).length;
-      return `<details class="more" data-more="${s.id}"${ui.more[s.id] ? ' open' : ''}><summary><span>Plus de détails</span><small>${n ? n + ' sur ' + g.keys.length + ' remplis' : 'facultatif'}</small></summary><div class="fields">${inner}</div></details>`;
+      const n = keys.filter(k => hasValue(c, k)).length;
+      return `<details class="more" data-more="${s.id}"${ui.more[s.id] ? ' open' : ''}><summary><span>Plus de détails</span><small>${n ? n + ' sur ' + keys.length + ' remplis' : 'facultatif'}</small></summary><div class="fields">${inner}</div></details>`;
     }
     if (g.bare) return inner;
     return `<section class="group">${g.title ? `<h3 class="group-title">${g.title}</h3>` : ''}<div class="fields">${inner}</div></section>`;
@@ -609,8 +684,8 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     if (s.id === 'fiche') body = ficheHTML(c);
     else {
       body = (s.id === 'identite' ? descHTML(c) : '') + `<div class="groups">${s.groups.map(g => groupHTML(g, c, s)).join('')}</div>`;
-      if (s.id === 'identite') body += `<datalist id="dl-villes">${D.VILLES.map(x => `<option value="${esc(x)}">`).join('')}</datalist><datalist id="dl-metiers">${D.METIERS.map(x => `<option value="${esc(disp(x, form(c)))}">`).join('')}</datalist>`;
-      if (s.id === 'histoire') body += claudeHTML();
+      if (s.id === 'identite') body += `<datalist id="dl-villes">${D.VILLES.map(x => `<option value="${esc(x)}">`).join('')}</datalist><datalist id="dl-metiers">${metierList().map(x => `<option value="${esc(disp(x, form(c)))}">`).join('')}</datalist>`;
+      if (s.id === 'histoire') body += `<div class="group bg-link"><div><h3 class="group-title">Besoin d'un récit complet ?</h3><p class="hint">Le générateur de Background rédige l'histoire du personnage à partir de cette fiche.</p></div><a class="btn primary" href="#background">Ouvrir Background</a></div>` + claudeHTML();
     }
     const foot = `<footer class="step-foot">${i > 0 ? `<button type="button" class="btn" data-act="prev">${ICON.left}<span>${STEPS[i - 1].short}</span></button>` : '<span></span>'}` +
       (i < last ? `<button type="button" class="btn ghost only-mobile" data-act="openPreview">${ICON.card}<span>Aperçu</span></button>` : '') +
@@ -730,7 +805,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     return new Uint8Array(await new Response(stream.readable).arrayBuffer());
   }
   async function encodeShare(c) {
-    const bytes = new TextEncoder().encode(JSON.stringify({ v: c.v, rel: c.rel }));
+    const bytes = new TextEncoder().encode(JSON.stringify({ v: c.v, rel: c.rel, bg: c.bg }));
     let out = 'j.' + b64u(bytes);
     if ('CompressionStream' in window) {
       try { const z = 'z.' + b64u(await pipe(bytes, new CompressionStream('gzip'))); if (z.length < out.length) out = z; } catch (e) { /* on garde la version simple */ }
@@ -778,6 +853,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     addChar(c); ui.armed = null; closeDialogs();
     renderAll(); scheduleSave(); $('#line').scrollIntoView({ block: 'start' });
     toast('Nouvelle fiche vierge.');
+    toCreator();
   }
   function genAllNow() {
     const c = C();
@@ -820,6 +896,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     const b = e.target.closest('[data-act]');
     if (!b || b.disabled) return;
     const act = b.dataset.act, key = b.dataset.key, c = C();
+    if (act !== 'bgAll') bgDisarm();
     switch (act) {
       case 'chip': toggleChip(key, b.dataset.v); break;
       case 'sw': c.v[key] = Number(b.dataset.v); changed(key); break;
@@ -846,41 +923,44 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       case 'openChars': openChars(); break;
       case 'closeDlg': closeDialogs(); break;
       case 'openChar':
-        store.cur = b.dataset.id; ui.step = 0; ui.armed = null; closeDialogs(); renderAll(); scheduleSave(); break;
+        store.cur = b.dataset.id; ui.step = 0; ui.armed = null; ui.bgArm = false; closeDialogs(); scheduleSave();
+        if (ui.view === 'home') toCreator(); else renderView();
+        break;
       case 'dupChar': {
-        const src = store.chars[b.dataset.id], n = clean({ v: src.v, rel: src.rel, photo: src.photo });
+        const src = store.chars[b.dataset.id], n = clean({ v: src.v, rel: src.rel, photo: src.photo, bg: src.bg });
         if (n.v.prenom) n.v.prenom += ' (copie)'; else n.v.nom = (n.v.nom || '') + ' (copie)';
-        addChar(n); closeDialogs(); renderAll(); scheduleSave(); toast('Personnage dupliqué.'); break;
+        addChar(n); closeDialogs(); renderView(); scheduleSave(); toast('Personnage dupliqué.'); if (ui.view === 'home') toCreator(); break;
       }
       case 'delChar': {
         const id = b.dataset.id;
         if (ui.armed !== id) { ui.armed = id; $('#charsList').innerHTML = charsListHTML(); break; }
         delete store.chars[id]; store.order = store.order.filter(x => x !== id); ui.armed = null;
-        if (!store.order.length) { addChar(blank()); closeDialogs(); renderAll(); }
-        else { if (store.cur === id) { store.cur = store.order[0]; ui.step = 0; renderAll(); } $('#charsList').innerHTML = charsListHTML(); }
+        if (!store.order.length) { addChar(blank()); closeDialogs(); renderView(); }
+        else { if (store.cur === id) { store.cur = store.order[0]; ui.step = 0; renderView(); } $('#charsList').innerHTML = charsListHTML(); }
         renderTop(); scheduleSave(); break;
       }
       case 'openImport': closeDialogs(); $('#impMsg').textContent = ''; $('#impText').value = ''; $('#dlgImport').showModal(); break;
       case 'doImport': {
         parseImport($('#impText').value).then(n => {
-          addChar(n); closeDialogs(); renderAll(); scheduleSave(); toast('Fiche importée.');
+          addChar(n); closeDialogs(); renderAll(); scheduleSave(); toast('Fiche importée.'); toCreator();
         }).catch(err => { $('#impMsg').textContent = err && err.message && !/JSON|Unexpected|format|trop/.test(err.message) ? err.message : 'Ce texte n\'est pas une fiche valide.'; });
         break;
       }
-      case 'shareAdd': { ui.shared.id = newId(); addChar(ui.shared); ui.shared = null; history.replaceState(null, '', location.pathname + location.search); renderAll(); scheduleSave(); toast('Personnage ajouté.'); break; }
-      case 'shareDismiss': ui.shared = null; history.replaceState(null, '', location.pathname + location.search); renderBanner(); break;
+      case 'shareAdd': { ui.shared.id = newId(); addChar(ui.shared); ui.shared = null; history.replaceState(null, '', location.pathname + location.search + '#creation'); renderAll(); scheduleSave(); toast('Personnage ajouté.'); break; }
+      case 'shareDismiss': ui.shared = null; history.replaceState(null, '', location.pathname + location.search + '#creation'); renderBanner(); break;
       case 'copyMd': {
         const t = toText(c, true);
         copyText(t, t.length > 2000 ? 'Copié, mais plus de 2000 caractères : Discord demandera de découper le message.' : 'Fiche copiée au format Discord.'); break;
       }
       case 'copyTxt': copyText(toText(c, false), 'Fiche copiée en texte brut.'); break;
       case 'copyLink': encodeShare(c).then(p => copyText(location.href.split('#')[0] + '#p=' + p, 'Lien de partage copié.')); break;
-      case 'dlJson': saveFile(slug(sheet(c).name) + '.json', JSON.stringify({ app: 'ligne-de-vie', version: 1, character: { v: c.v, rel: c.rel, photo: c.photo } }, null, 2), 'application/json'); break;
+      case 'dlJson': saveFile(slug(sheet(c).name) + '.json', JSON.stringify({ app: 'ligne-de-vie', version: 1, character: { v: c.v, rel: c.rel, photo: c.photo, bg: c.bg } }, null, 2), 'application/json'); break;
       case 'dlPortrait':
         if (c.photo.src) fetch(c.photo.src).then(r => r.blob()).then(b => saveFile(slug(sheet(c).name) + '-portrait.jpg', b, 'image/jpeg'));
         break;
       case 'descApply': describeApply(); break;
-      case 'descEx': { const ex = DESC_EXAMPLES[Number(b.dataset.i)]; if (ex) { ui.descText = ex[1]; const t = $('#descText'); if (t) { t.value = ex[1]; t.focus(); } } break; }
+      case 'descMore': ui.exIdx = null; if (ui.view === 'home') renderHome(); else renderPanel(); break;
+      case 'descEx': { const ex = exPool()[Number(b.dataset.i)]; if (ex) { ui.descText = ex[1]; const t = $('#descText'); if (t) { t.value = ex[1]; t.focus(); } } break; }
       case 'expand': ui.exp[key] = !ui.exp[key]; refreshField(key); break;
       case 'phPick': { const f = $('#phFile'); if (f) f.click(); break; }
       case 'phUse':
@@ -899,12 +979,57 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
         c.v[k] = (c.v[k] ? c.v[k] + '\n\n' : '') + txt;
         $('#creply').value = ''; changed(k); toast('Texte inséré dans « ' + F[k].label + ' ».'); break;
       }
+      case 'skip': e.preventDefault(); $('#main').focus(); break;
+      case 'world':
+        if (W() !== b.dataset.w) { setWorld(b.dataset.w); refreshExample(); scheduleSave(); }
+        renderHome(); break;
+      case 'homeEx': { const ex = exPool()[Number(b.dataset.i)]; if (ex) { ui.descText = ex[1]; describeApply(); } break; }
+      case 'bgPreset': bgSetPlan(c, BG.PLANS[b.dataset.p]); bgChanged('[data-act="bgPreset"][data-p="' + b.dataset.p + '"]'); break;
+      case 'bgToggle': {
+        const k = b.dataset.k, on = c.bg.on.indexOf(k) >= 0;
+        if (on) c.bg.on = c.bg.on.filter(x => x !== k);
+        else { c.bg.on = BG_ALL.filter(x => c.bg.on.indexOf(x) >= 0 || x === k); if (k !== 'libre' && !(c.bg.t[k] || '').trim()) c.bg.t[k] = bgOne(c, k); }
+        bgChanged(on ? '[data-act="bgToggle"][data-k="' + k + '"]' : '#bg-' + k); break;
+      }
+      case 'bgRoll': {
+        const k = b.dataset.k;
+        if ((c.bg.t[k] || '').trim()) ui.bgPrev[c.id + k] = c.bg.t[k];
+        c.bg.t[k] = bgOne(c, k);
+        bgChanged('[data-act="bgRoll"][data-k="' + k + '"]'); break;
+      }
+      case 'bgUndo': {
+        const k = b.dataset.k, p = ui.bgPrev[c.id + k];
+        if (p) { c.bg.t[k] = p; delete ui.bgPrev[c.id + k]; bgChanged('#bg-' + k); }
+        break;
+      }
+      case 'bgAll': {
+        if (!ui.bgArm && bgHas(c)) { ui.bgArm = true; b.classList.add('armed'); const sp = $('span', b); if (sp) sp.textContent = 'Confirmer : tout réécrire'; break; }
+        ui.bgArm = false;
+        if (!c.bg.on.some(k => k !== 'libre')) bgSetPlan(c, BG.PLANS.moyen);
+        c.bg.on.forEach(k => { if (k !== 'libre') { if ((c.bg.t[k] || '').trim()) ui.bgPrev[c.id + k] = c.bg.t[k]; c.bg.t[k] = bgOne(c, k); } });
+        bgChanged('[data-act="bgAll"]'); toast('Background réécrit.'); break;
+      }
+      case 'bgCopyMd': case 'bgCopyTxt': {
+        if (!bgHas(c)) { toast('Rien à copier pour l\'instant.'); break; }
+        const md = act === 'bgCopyMd', t = bgToText(c, md);
+        copyText(t, md ? (t.length > 2000 ? 'Copié, mais plus de 2000 caractères : Discord demandera de découper le message.' : 'Background copié au format Discord.') : 'Background copié.'); break;
+      }
+      case 'bgFix': ui.step = clamp(Number(b.dataset.i) || 0, 0, STEPS.length - 1); location.hash = '#creation'; break;
+      case 'bgPrompt': copyText(buildBgPrompt(c, $('#bgTask').value), 'Demande copiée : colle-la dans Claude.'); break;
+      case 'bgInsert': {
+        const txt = $('#bgReply').value.trim();
+        if (!txt) { toast('Colle d\'abord la réponse de Claude.'); break; }
+        c.bg.t.libre = ((c.bg.t.libre || '') + (c.bg.t.libre ? '\n\n' : '') + txt).slice(0, 6000);
+        c.bg.on = BG_ALL.filter(x => c.bg.on.indexOf(x) >= 0 || x === 'libre');
+        bgChanged('#bg-libre'); toast('Texte ajouté dans « Texte libre ».'); break;
+      }
       default: break;
     }
   });
 
   document.addEventListener('input', e => {
     const t = e.target, c = C();
+    if (t.dataset.bg) { c.bg.t[t.dataset.bg] = t.value; c.bg.seen = true; c.updated = Date.now(); c.example = false; scheduleSave(); return; }
     if (t.dataset.rel) {
       const r = c.rel[Number(t.dataset.i)];
       if (r) { r[t.dataset.rel] = t.value; c.updated = Date.now(); afterChange('rel'); }
@@ -925,6 +1050,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
   });
   document.addEventListener('change', e => {
     const t = e.target, c = C();
+    if (t.id === 'bgChar') { store.cur = t.value; ui.step = 0; ui.bgArm = false; scheduleSave(); renderBg('#bgChar'); return; }
     if (t.dataset.rel === 'lien') { c.rel[Number(t.dataset.i)].lien = t.value; afterChange('rel'); return; }
     if (t.id === 'phFile') {
       const f = t.files && t.files[0];
@@ -1001,7 +1127,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     }
     if (e.key === 'Escape' && document.body.classList.contains('show-preview')) document.body.classList.remove('show-preview');
   });
-  window.addEventListener('hashchange', checkHash);
+  window.addEventListener('hashchange', route);
   window.addEventListener('beforeunload', () => { clearTimeout(saveTimer); if (storageOK) saveNow(); });
 
   async function checkHash() {
@@ -1011,10 +1137,181 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     catch (e) { toast('Le lien de partage est illisible.'); }
   }
 
+  /* ---------- Background : rédiger l'histoire d'un personnage ---------- */
+  const bgHas = c => c.bg.on.some(k => (c.bg.t[k] || '').trim());
+  const bgOne = (c, k) => BG.section(k, c, disp, form(c), W()).text;
+  // affiche les parties de la liste et rédige celles qui n'ont pas encore de texte ; les autres textes sont gardés
+  function bgSetPlan(c, keys) {
+    c.bg.on = BG_ALL.filter(k => keys.indexOf(k) >= 0 || (k === 'libre' && c.bg.on.indexOf('libre') >= 0));
+    keys.forEach(k => { if (!(c.bg.t[k] || '').trim()) c.bg.t[k] = bgOne(c, k); });
+    c.bg.seen = true;
+  }
+  const bgPreset = c => {
+    const on = c.bg.on.filter(k => k !== 'libre').join();
+    return Object.keys(BG.PLANS).find(p => BG.PLANS[p].join() === on) || '';
+  };
+  function bgToText(c, md) {
+    const name = sheet(c).name || 'Personnage sans nom', out = [md ? '**Background de ' + name + '**' : 'BACKGROUND DE ' + name.toUpperCase()];
+    bgParts(c).forEach(p => out.push('', md ? '**' + p[0] + '**' : p[0].toUpperCase(), p[1]));
+    return out.join('\n');
+  }
+  const BG_TASKS = {
+    complet: 'Écris le background complet de ce personnage en trois ou quatre paragraphes (origines, parcours, situation actuelle), cohérent avec la fiche. Sois concret (lieux, personnes, dates approximatives), évite les clichés et laisse quelques zones d\'ombre que d\'autres joueurs pourront explorer.',
+    enrichir: 'Réécris le background actuel de la fiche en l\'enrichissant de détails concrets et de nuances, sans changer les faits ni la fiche.',
+    candidature: 'Résume le background de ce personnage en un seul paragraphe d\'une dizaine de lignes, adapté à une candidature sur un serveur de jeu de rôle.'
+  };
+  function buildBgPrompt(c, task) {
+    return 'Je crée un personnage pour un jeu de rôle (RP) ' + worldLine() + ' Voici sa fiche actuelle :\n\n' + toText(c, false) +
+      '\n\nDemande : ' + BG_TASKS[task] + '\n\nRéponds en français, avec un ton naturel et sans titres superflus, de façon à ce que je puisse copier ton texte tel quel dans ma fiche.';
+  }
+  function bgMiniHTML(c) {
+    const s = sheet(c), f = form(c), chips = (c.v.traits || []).slice(0, 4).map(x => `<li>${esc(disp(x, f))}</li>`).join('');
+    return `<div class="mini"><figure class="idc-photo">${portrait(c)}</figure><div class="mini-t"><b>${esc(s.name) || 'Personnage sans nom'}</b><small>${esc(s.sub) || 'Fiche à compléter'}</small>${chips ? `<ul class="idc-chips">${chips}</ul>` : ''}<a class="link" href="#creation">Modifier la fiche</a></div></div>`;
+  }
+  // ce qui manque à la fiche et rendrait le texte plus précis, avec l'étape où le compléter
+  function bgHintsHTML(c) {
+    const v = c.v, need = [];
+    if (!v.ville) need.push(['Ville', 0]);
+    if (!v.metier) need.push(['Métier', 0]);
+    if (!(v.traits || []).length) need.push(['Traits', 2]);
+    if (!v.motivation) need.push(['Motivation', 2]);
+    if (!v.evenement) need.push(['Événement marquant', 3]);
+    if (!c.rel.some(r => r.nom)) need.push(['Relations', 4]);
+    if (!need.length) return '';
+    return `<div class="bg-hint"><p class="hint">Le texte gagne en détails avec :</p><div class="chips">${need.map(n => `<button type="button" class="chip" data-act="bgFix" data-i="${n[1]}">${n[0]}</button>`).join('')}</div></div>`;
+  }
+  function bgSecHTML(c, k) {
+    const gen = k !== 'libre', prev = ui.bgPrev[c.id + k], title = esc(BG_TITLE[k]);
+    return `<article class="bg-sec" style="--c:var(${BG_LINE[k]})"><div class="field-head"><label class="lbl" for="bg-${k}">${title}</label><span class="tools">` +
+      (gen ? `<button type="button" class="tool" data-act="bgRoll" data-k="${k}" aria-label="Réécrire : ${title}" title="Réécrire cette partie">${ICON.die}</button>` : '') +
+      `<button type="button" class="tool" data-act="bgToggle" data-k="${k}" aria-label="Masquer : ${title} (le texte est gardé)" title="Masquer cette partie (le texte est gardé)">${ICON.minus}</button></span></div>` +
+      `<textarea class="in" id="bg-${k}" data-bg="${k}" rows="6" maxlength="6000" placeholder="${gen ? '' : 'Écris ou colle ici ce que tu veux ajouter à son histoire.'}">${esc(c.bg.t[k] || '')}</textarea>` +
+      (prev ? `<div><button type="button" class="link" data-act="bgUndo" data-k="${k}">Rétablir la version précédente</button></div>` : '') + '</article>';
+  }
+  function bgClaudeHTML() {
+    return `<details class="claude" id="bgClaude"><summary>${ICON.spark}<span>Une version plus riche ? Demande à Claude</span></summary>
+<div class="claude-body">
+<p>Le site ne se connecte pas à Claude tout seul. Il prépare une demande à partir de la fiche : tu la copies, tu la colles dans Claude, puis tu rapportes la réponse ici, dans « Texte libre ».</p>
+<div class="field"><div class="field-head"><label class="lbl" for="bgTask">Que veux-tu demander ?</label></div>
+<select class="in" id="bgTask"><option value="complet">Écrire le background complet</option><option value="enrichir">Enrichir le background actuel</option><option value="candidature">Résumer pour une candidature</option></select></div>
+<div class="btnrow"><button type="button" class="btn primary" data-act="bgPrompt">${ICON.copy} Copier la demande</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Ouvrir Claude</a></div>
+<div class="field"><div class="field-head"><label class="lbl" for="bgReply">Réponse de Claude</label></div><textarea class="in" id="bgReply" rows="5" placeholder="Colle ici ce que Claude a répondu."></textarea></div>
+<div class="btnrow"><button type="button" class="btn" data-act="bgInsert">Ajouter dans « Texte libre »</button></div>
+</div></details>`;
+  }
+  function bgPageHTML() {
+    const c = C(), pre = bgPreset(c), has = c.bg.on.length > 0;
+    const opts = store.order.map(id => {
+      const x = store.chars[id], n = sheet(x).name || 'Personnage sans nom';
+      return `<option value="${id}"${id === store.cur ? ' selected' : ''}>${esc(n)}${x.example ? ' (exemple)' : ''}</option>`;
+    }).join('');
+    const lens = Object.keys(BG.PLANS).map(p => `<button type="button" class="chip" data-act="bgPreset" data-p="${p}" aria-pressed="${pre === p}">${{ court: 'Court', moyen: 'Moyen', long: 'Long' }[p]}</button>`).join('');
+    const off = BG_ALL.filter(k => c.bg.on.indexOf(k) < 0).map(k => `<button type="button" class="chip more-chip" data-act="bgToggle" data-k="${k}">+ ${esc(BG_TITLE[k])}</button>`).join('');
+    let body;
+    if (has) {
+      body = c.bg.on.map(k => bgSecHTML(c, k)).join('') +
+        (off ? `<div class="bg-add"><span class="hint">Ajouter une partie :</span>${off}</div>` : '') +
+        `<div class="step-foot bg-foot"><button type="button" class="btn${ui.bgArm ? ' armed' : ''}" data-act="bgAll">${ICON.die}<span>${ui.bgArm ? 'Confirmer : tout réécrire' : 'Tout réécrire'}</span></button>` +
+        `<span class="btnrow"><button type="button" class="btn" data-act="bgCopyTxt">${ICON.copy}<span>Texte brut</span></button><button type="button" class="btn primary" data-act="bgCopyMd">${ICON.copy}<span>Pour Discord</span></button></span></div>` +
+        bgClaudeHTML();
+    } else if (isUntouched(c)) {
+      body = `<div class="empty bg-empty"><p><b>Cette fiche est encore vide.</b> Le background s'appuie sur ce que tu as rempli : âge, ville, métier, caractère, événement marquant, relations.</p><div class="btnrow"><a class="btn primary" href="#creation">Compléter la fiche</a><button type="button" class="btn" data-act="bgPreset" data-p="moyen">Rédiger quand même</button></div></div>`;
+    } else {
+      body = `<div class="empty bg-empty"><p>Aucune partie n'est affichée. Choisis une longueur ci-dessus${off ? ', ou ajoute une partie :' : '.'}</p>${off ? `<div class="chips">${off}</div>` : ''}</div>`;
+    }
+    return `<div class="bg-in"><header class="step-head"><div class="step-title"><h2 tabindex="-1">Background</h2></div><p class="lede">L'histoire d'un personnage, rédigée à partir de sa fiche. Relis, modifie, relance ce qui ne te plaît pas.</p></header>
+<div class="bg-grid"><div class="bg-main">
+<div class="group bg-bar"><div class="field"><div class="field-head"><label class="lbl" for="bgChar">Personnage</label></div><select class="in" id="bgChar">${opts}</select></div>
+<div class="field"><div class="field-head"><span class="lbl" id="l-bglen">Longueur</span></div><div class="chips" role="group" aria-labelledby="l-bglen">${lens}</div></div></div>
+${bgHintsHTML(c)}${body}</div>
+<aside class="bg-side" aria-label="Personnage">${bgMiniHTML(c)}</aside></div></div>`;
+  }
+  function renderBg(focusSel) {
+    const c = C();
+    // première visite d'une fiche déjà remplie : un premier texte est proposé tout de suite
+    if (c && !c.bg.seen && !c.bg.on.length && !isUntouched(c)) { bgSetPlan(c, BG.PLANS.moyen); scheduleSave(); }
+    $('#bgPage').innerHTML = bgPageHTML();
+    renderTop();
+    if (focusSel) { const el = $(focusSel); if (el) el.focus({ preventScroll: true }); }
+  }
+  function bgChanged(focusSel) {
+    const c = C();
+    c.updated = Date.now(); c.bg.seen = true;
+    scheduleSave(); renderBg(focusSel);
+  }
+  function bgDisarm() {
+    if (!ui.bgArm) return;
+    ui.bgArm = false;
+    const b = $('[data-act="bgAll"]');
+    if (b) { b.classList.remove('armed'); const s = $('span', b); if (s) s.textContent = 'Tout réécrire'; }
+  }
+
+  /* ---------- accueil ---------- */
+  const TILE_ICON = {
+    creer: '<svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="21" cy="16" r="7.5"/><path d="M6 41c0-8.5 6.5-14 15-14s15 5.500 15 14"/><path d="M38 9v10M33 14h10"/></svg>',
+    histoire: '<svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11c6.500-3 13-2.500 19 1.500 6-4 12.500-4.500 19-1.500v27c-6.500-3-13-2.500-19 1.500-6-4-12.500-4.500-19-1.500z"/><path d="M24 12.500v27"/></svg>'
+  };
+  function homeHTML() {
+    const c = C(), gta = W() === 'gta', name = c && !c.example ? sheet(c).name : '';
+    const tile = (href, line, ico, title, text, go) => `<a class="tile" href="${href}" style="--c:var(${line})"><span class="tile-ico">${ico}</span><span class="tile-t">${title}</span><span class="tile-d">${text}</span><span class="tile-go">${go}</span></a>`;
+    const wbtn = (w, label) => `<button type="button" class="chip" data-act="world" data-w="${w}" aria-pressed="${W() === w}">${label}</button>`;
+    return `<div class="home-in"><header class="home-head"><p class="eyebrow">Jeu de rôle · ${gta ? 'GTA RP' : 'États-Unis'}</p><h1 tabindex="-1">Ligne de vie</h1><p class="lede">Invente un personnage, puis écris son histoire. Tout reste dans ton navigateur.</p></header>
+<div class="tiles">${tile('#creation', '--l1', TILE_ICON.creer, 'Création de personnage', 'Identité, apparence, caractère, relations. Décris-le en une phrase ou construis-le pas à pas.', name ? 'Reprendre ' + esc(name) : 'Commencer')}${tile('#background', '--l4', TILE_ICON.histoire, 'Background', 'Rédige l\'histoire d\'un personnage à partir de sa fiche : origines, parcours, tournant.', name ? 'Pour ' + esc(name) : 'Choisir un personnage')}</div>
+<div class="home-boxes">
+<section class="home-box" aria-labelledby="ideasT"><h2 class="box-t" id="ideasT">Une idée pour commencer ?</h2><p class="hint">Un clic crée le personnage correspondant, que tu pourras ensuite modifier.</p>
+<div class="chips">${exShown().map(i => `<button type="button" class="chip" data-act="homeEx" data-i="${i}">${esc(exPool()[i][0])}</button>`).join('')}<button type="button" class="chip more-chip" data-act="descMore">Autres idées</button></div></section>
+<section class="home-box" aria-labelledby="worldT"><h2 class="box-t" id="worldT">Univers</h2>
+<div class="chips" role="group" aria-labelledby="worldT">${wbtn('gta', 'GTA RP · San Andreas')}${wbtn('usa', 'États-Unis réels')}</div>
+<p class="hint">${gta ? 'Los Santos, Blaine County (Sandy Shores, Paleto Bay…), Vice City et Liberty City, avec leurs métiers, services et gangs.' : 'Les grandes villes et les petites villes des États-Unis d\'aujourd\'hui, avec des métiers de la vie courante.'}</p></section>
+</div></div>`;
+  }
+  function renderHome() { $('#home').innerHTML = homeHTML(); renderTop(); }
+  // une fiche d'exemple suit l'univers choisi
+  function refreshExample() {
+    const c = C();
+    if (!c || !c.example) return;
+    const n = blank();
+    genKeys(n, ORDER);
+    n.id = c.id; n.created = c.created; n.example = true;
+    store.chars[c.id] = n;
+  }
+
+  /* ---------- navigation entre les pages ---------- */
+  // # (vide) : accueil, #creation, #background, #p=... : fiche partagée (ouverte dans la création)
+  const parseView = () => {
+    const h = location.hash.replace(/^#/, '');
+    return h === 'creation' || /^p=/.test(h) ? 'creator' : h === 'background' ? 'bg' : h === '' ? 'home' : null;
+  };
+  function renderView() {
+    if (ui.view === 'bg') renderBg(); else if (ui.view === 'home') renderHome(); else renderAll();
+  }
+  const toCreator = () => { if (ui.view !== 'creator') location.hash = '#creation'; };
+  function showView(v) {
+    const moved = ui.view !== undefined && ui.view !== v;
+    ui.view = v;
+    document.body.dataset.view = v;
+    document.body.classList.remove('show-preview');
+    $('#home').hidden = v !== 'home'; $('#creator').hidden = v !== 'creator'; $('#bgPage').hidden = v !== 'bg';
+    $$('[data-nav]').forEach(a => { if (a.dataset.nav === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    document.title = (v === 'home' ? '' : v === 'bg' ? 'Background · ' : 'Création · ') + 'Ligne de vie';
+    renderView();
+    if (moved) {
+      window.scrollTo(0, 0);
+      const h = $(v === 'home' ? '#home h1' : v === 'bg' ? '#bgPage h2' : '#panel h2');
+      if (h) h.focus({ preventScroll: true });
+    }
+  }
+  function route() {
+    const v = parseView();
+    if (v) showView(v); else if (ui.view === undefined) showView('home');
+    if (/^#p=/.test(location.hash)) checkHash();
+  }
+
   /* ---------- démarrage ---------- */
   function init() {
     try { localStorage.setItem(KEY + '.t', '1'); localStorage.removeItem(KEY + '.t'); } catch (e) { storageOK = false; }
     if (storageOK) loadStore();
+    setWorld(store.world);
     if (!store.order.length) {
       const c = blank();
       genKeys(c, ORDER);
@@ -1022,9 +1319,8 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       addChar(c);
       if (storageOK) saveNow();
     }
-    renderAll();
     setStatus(storageOK ? 'saved' : 'nostore');
-    checkHash();
+    route();
   }
   init();
 })();
