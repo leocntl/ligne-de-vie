@@ -1,0 +1,943 @@
+/* Ligne de vie : créateur de personnage RP.
+   Tout tourne dans le navigateur. Les fiches sont enregistrées dans localStorage. */
+(function () {
+  'use strict';
+
+  const D = window.LDV;
+  const A = D; // choix de traits physiques (peau, cheveux, yeux...), définis dans data.js
+  const P = window.LDV_PHOTO;
+  const KEY = 'ligne-de-vie.v1';
+
+  /* ---------- petits outils ---------- */
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const rnd = n => Math.floor(Math.random() * n);
+  const pick = a => a[rnd(a.length)];
+  const pickN = (a, n) => { const b = a.slice(), out = []; while (out.length < n && b.length) out.push(b.splice(rnd(b.length), 1)[0]); return out; };
+  const rint = (a, b) => a + rnd(b - a + 1);
+  const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
+  const at = (arr, i) => arr[clamp(parseInt(i, 10) || 0, 0, arr.length - 1)];
+  const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : '');
+  const lc = s => (s && !/^[A-ZÀ-Ö]{2}/.test(s) ? s[0].toLowerCase() + s.slice(1) : s || '');
+  const newId = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+  function wpick(pairs) {
+    let r = Math.random() * pairs.reduce((s, p) => s + p[1], 0);
+    for (const p of pairs) { r -= p[1]; if (r < 0) return p[0]; }
+    return pairs[0][0];
+  }
+
+  const ICON = (() => {
+    const s = body => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+    return {
+      die: s('<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/>'),
+      lock: s('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
+      unlock: s('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-1.5"/>'),
+      trash: s('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+      plus: s('<path d="M12 5v14M5 12h14"/>'),
+      copy: s('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
+      left: s('<path d="M15 6l-6 6 6 6"/>'),
+      right: s('<path d="M9 6l6 6-6 6"/>'),
+      spark: s('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'),
+      list: s('<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>'),
+      card: s('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h4M7 14h6M15 10h2"/>'),
+      down: s('<path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>'),
+      link: s('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+      up: s('<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>')
+    };
+  })();
+
+  /* ---------- genre grammatical ---------- */
+  // "f" ou "m" d'après le genre ; "x" (forme inclusive dans les listes) tant que le genre n'est pas choisi
+  function form(c) {
+    const g = c.v.genre;
+    return g === 'Femme' ? 'f' : g === 'Homme' ? 'm' : 'x';
+  }
+  // portrait affiché sur la fiche : l'image choisie, sinon une silhouette neutre
+  const SILHOUETTE = '<svg class="sil" viewBox="0 0 100 120" role="img" aria-label="Pas encore d\'image"><circle cx="50" cy="42" r="19"/><path d="M14 120c0-26 16-40 36-40s36 14 36 40z"/></svg>';
+  const portrait = c => (c.photo.src ? `<img class="photo-img" src="${c.photo.src}" alt="Portrait du personnage">` : SILHOUETTE);
+  function incl(a, b) {
+    if (a === b) return a;
+    if (/eur$/.test(a) && /euse$/.test(b)) return a + '·se';
+    if (/teur$/.test(a) && /trice$/.test(b)) return a + '·rice';
+    let p = 0;
+    while (p < a.length && p < b.length && a[p] === b[p]) p++;
+    return a + '·' + b.slice(p);
+  }
+  // "Têtu|Têtue" ou "Infirmier|Infirmière~ de nuit" selon la forme demandée
+  function disp(raw, f) {
+    raw = String(raw == null ? '' : raw);
+    const i = raw.indexOf('|');
+    if (i < 0) return raw;
+    const a = raw.slice(0, i);
+    let b = raw.slice(i + 1), suffix = '';
+    const j = b.indexOf('~');
+    if (j >= 0) { suffix = b.slice(j + 1); b = b.slice(0, j); }
+    return (f === 'm' ? a : f === 'f' ? b : incl(a, b)) + suffix;
+  }
+  // remplace les jetons {prenom} {il} {e} ... dans les textes générés
+  function fill(tpl, c) {
+    // sans genre choisi, les textes tirés au sort passent au masculin
+    const f = form(c) === 'f' ? 'f' : 'm', v = c.v;
+    const il = { f: 'elle', m: 'il' }[f];
+    const first = (v.loisirs || [])[0];
+    const map = {
+      prenom: disp(v.prenom, f) || 'Le personnage',
+      nom: disp(v.nom, f),
+      ville: (v.ville || 'sa ville').replace(/,\s*[A-Z]{2}$/, ''),
+      metier: lc(disp(v.metier, f)) || 'un métier',
+      logement: lc(v.logement) || 'dans un petit logement',
+      hobby: lc(first) || 'la musique',
+      il, Il: cap(il), e: { f: 'e', m: '' }[f],
+      qu_il: { f: "qu'elle", m: "qu'il" }[f],
+      s_il: { f: 'si elle', m: "s'il" }[f]
+    };
+    return tpl.replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m));
+  }
+  const pool = c => D.ORIGINES.find(o => o.label === c.v.origine) || D.ORIGINES[0];
+  // centimètres vers pieds et pouces, par exemple 178 donne 5'10"
+  const imp = cm => { if (!cm) return ''; const t = Math.round(cm / 2.54); return Math.floor(t / 12) + "'" + (t % 12) + '"'; };
+
+  /* ---------- générateurs ---------- */
+  // tire au sort les traits physiques (peau, cheveux, yeux...) de façon cohérente avec l'origine, l'âge et le genre
+  function genLook(c) {
+    const v = c.v, f = form(c), age = v.age || 30, org = v.origine || 'Européennes';
+    const dark = /Afro/.test(org), mid = /Latino|Arabes|Amérindiennes/.test(org), asia = /Asiatiques/.test(org);
+    const peau = dark ? rint(4, 7) : mid ? rint(2, 5) : asia ? rint(1, 3) : rint(0, 3);
+    let cheveux;
+    if (age >= 58 && Math.random() < 0.6) cheveux = pick([7, 7, 8]);
+    else if (dark || mid || asia) cheveux = pick([0, 0, 0, 1, 1, 2]);
+    else if (age < 38 && Math.random() < 0.08) cheveux = pick([9, 10]);
+    else cheveux = pick([0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 6]);
+    let coupe;
+    if (f === 'f') coupe = pick(['mi', 'long', 'long', 'queue', 'chignon', 'court']);
+    else if (f === 'm') coupe = pick(['court', 'court', 'ras', 'court']);
+    else coupe = pick(['court', 'mi', 'long', 'queue', 'chignon', 'ras']);
+    if (dark && Math.random() < 0.4) coupe = 'boucles';
+    if (f === 'm' && age > 35 && Math.random() < 0.15) coupe = 'chauve';
+    const pilo = f === 'm' ? wpick([['non', 45], ['3j', 25], ['barbe', 20], ['mous', 10]]) : f === 'x' ? wpick([['non', 85], ['3j', 15]]) : 'non';
+    return {
+      av_peau: peau, av_cheveux: cheveux, av_coupe: coupe,
+      av_yeux: dark || asia ? pick([0, 0, 1, 6]) : mid ? pick([0, 1, 2, 6]) : pick([0, 1, 1, 2, 3, 4, 5]),
+      av_pilo: pilo, av_lunettes: Math.random() < 0.28 ? pick(['rondes', 'carrees']) : 'non',
+      av_taches: peau <= 3 && Math.random() < (cheveux === 6 ? 0.6 : 0.07) ? 'oui' : 'non'
+    };
+  }
+
+  /* ---------- définition des champs ---------- */
+  // t : type de champ. gen : tirage au sort (absent = pas de dé). w : "half" pour deux colonnes.
+  const F = {
+    prenom: { t: 'text', label: 'Prénom', ph: 'Emily', max: 40, w: 'half', gen: c => { const p = pool(c), f = form(c); return f === 'f' ? pick(p.f) : f === 'm' ? pick(p.m) : (Math.random() < 0.6 ? pick(D.NEUTRES) : pick(p.f.concat(p.m))); } },
+    nom: { t: 'text', label: 'Nom', ph: 'Carter', max: 40, w: 'half', gen: c => pick(pool(c).noms) },
+    surnom: { t: 'text', label: 'Surnom', ph: 'Em', max: 30, w: 'half', hint: 'Facultatif.' },
+    age: { t: 'number', label: 'Âge', min: 14, max: 100, unit: 'ans', w: 'half', gen: () => { const r = Math.random(); return r < 0.25 ? rint(18, 25) : r < 0.7 ? rint(26, 40) : r < 0.92 ? rint(41, 60) : rint(61, 82); } },
+    genre: { t: 'chips', label: 'Genre', opts: D.GENRES, gen: () => pick(D.GENRES) },
+    origine: { t: 'chips', label: 'Origines', opts: D.ORIGINES.map(o => o.label), custom: true, gen: () => wpick(D.ORIGINES.map(o => [o.label, o.poids || 1])) },
+    ville: { t: 'text', label: 'Ville', ph: 'Austin, TX', list: 'villes', max: 50, w: 'half', gen: () => pick(D.VILLES) },
+    metier: {
+      t: 'text', label: 'Métier ou occupation', ph: 'Infirmière', list: 'metiers', max: 70, w: 'half',
+      gen: c => {
+        const a = c.v.age || 30;
+        if (a <= 24 && Math.random() < 0.55) return pick(D.METIERS_ETUDIANTS);
+        if (a >= 64 && Math.random() < 0.5) return 'Retraité|Retraitée';
+        return pick(D.METIERS);
+      }
+    },
+    situation: {
+      t: 'chips', label: 'Situation amoureuse', opts: D.SITUATIONS, custom: true,
+      gen: c => {
+        const a = c.v.age || 30;
+        if (a < 22 && Math.random() < 0.7) return 'Célibataire';
+        return pick(D.SITUATIONS.filter(s => !((/^Veuf/.test(s) && a < 40) || (/^Divorcé/.test(s) && a < 25) || (/^(Marié|Fiancé)/.test(s) && a < 20))));
+      }
+    },
+    logement: {
+      t: 'chips', label: 'Logement', opts: D.LOGEMENTS, custom: true,
+      gen: c => {
+        const a = c.v.age || 30;
+        if (a < 22) return pick(['Chez ses parents', 'En résidence universitaire', 'En colocation', 'Dans un studio']);
+        const young = a < 30;
+        return pick(D.LOGEMENTS.filter(l => l !== 'En résidence universitaire' && (young ? Math.random() < 0.25 || l !== 'Chez ses parents' : l !== 'Chez ses parents')));
+      }
+    },
+
+    taille: { t: 'number', label: 'Taille', min: 100, max: 230, unit: 'cm', w: 'half', gen: c => clamp(Math.round({ f: 164, m: 177, x: 170 }[form(c)] + (Math.random() + Math.random() + Math.random() - 1.5) * 14), 148, 200) },
+    corpulence: { t: 'chips', label: 'Corpulence', opts: D.CORPULENCES, custom: true, w: 'half', gen: () => wpick([['Mince', 3], ['Athlétique', 2], ['Moyenne', 4], ['Robuste', 2], ['Ronde', 2]]) },
+    photo: { t: 'photo', label: 'Image du personnage' },
+    look: { t: 'look', label: 'Traits physiques', gen: genLook },
+    av_coupe: { t: 'chips', label: 'Coupe de cheveux', opts: A.COUPES },
+    av_cheveux: { t: 'swatch', label: 'Couleur des cheveux', pal: A.CHEVEUX },
+    av_yeux: { t: 'swatch', label: 'Yeux', pal: A.YEUX },
+    av_peau: { t: 'swatch', label: 'Teint', pal: A.PEAU },
+    av_pilo: { t: 'chips', label: 'Pilosité', opts: A.PILOSITE },
+    av_lunettes: { t: 'chips', label: 'Lunettes', opts: A.LUNETTES },
+    av_taches: { t: 'chips', label: 'Taches de rousseur', opts: A.TACHES },
+    style: { t: 'multi', label: 'Style vestimentaire', opts: D.STYLES, max: 3, custom: true, gen: () => pickN(D.STYLES, rint(1, 2)) },
+    signes: { t: 'area', label: 'Signes distinctifs', rows: 2, ph: 'Cicatrice, tatouage, piercing, détail qu\'on remarque…', gen: c => (Math.random() < 0.65 ? fill(pick(D.SIGNES), c) : '') },
+    attitude: { t: 'area', label: 'Voix et attitude', rows: 2, ph: 'Comment il ou elle parle, se tient, occupe l\'espace…', gen: c => fill(pick(D.ATTITUDES), c) },
+
+    traits: { t: 'multi', label: 'Traits de caractère', opts: D.TRAITS, max: 5, custom: true, gen: () => pickN(D.TRAITS, rint(3, 4)) },
+    qualites: { t: 'multi', label: 'Qualités', opts: D.QUALITES, max: 3, custom: true, gen: () => pickN(D.QUALITES, rint(2, 3)) },
+    defauts: { t: 'multi', label: 'Défauts', opts: D.DEFAUTS, max: 3, custom: true, gen: () => pickN(D.DEFAUTS, rint(2, 3)) },
+    peurs: { t: 'multi', label: 'Peurs', opts: D.PEURS, max: 3, custom: true, gen: () => pickN(D.PEURS, rint(1, 2)) },
+    loisirs: { t: 'multi', label: 'Loisirs et passions', opts: D.LOISIRS, max: 5, custom: true, gen: () => pickN(D.LOISIRS, rint(2, 4)) },
+    motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(pick(D.MOTIVATIONS), c) },
+    manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => pickN(D.MANIES, 2).map(s => fill(s, c)).join(' ') },
+    secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait.', hint: 'Il apparaît dans la fiche exportée : pense à le retirer avant de partager.', gen: c => fill(pick(D.SECRETS), c) },
+
+    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', hint: 'Les textes tirés au sort reprennent le prénom et la ville du moment : relance-les si tu les changes ensuite.', gen: c => fill(pick(D.ENFANCES), c) },
+    parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => fill(pick(D.PARCOURS), c) },
+    evenement: { t: 'chips', label: 'Événement marquant', opts: D.EVENEMENTS, custom: true, gen: () => pick(D.EVENEMENTS) },
+    actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => fill(pick(D.ACTUELS), c) },
+    accroches: { t: 'area', label: 'Accroches de RP', rows: 4, ph: 'Ce qui permet à un autre personnage de l\'aborder ou de l\'entraîner dans son histoire.', gen: c => pickN(D.ACCROCHES, 3).map(s => '• ' + fill(s, c)).join('\n') },
+    notes: { t: 'area', label: 'Notes libres', rows: 3, ph: 'Tout ce qui ne rentre pas ailleurs.' },
+
+    rel: {
+      t: 'rel', label: 'Relations',
+      gen: c => {
+        const first = pick(['Famille', 'Ami·e', 'Partenaire']);
+        return [first].concat(pickN(D.LIENS.filter(l => l !== first), 2)).map(lien => {
+          const o = lien === 'Famille' ? pool(c) : pick(D.ORIGINES);
+          const nom = lien === 'Famille' && c.v.nom ? disp(c.v.nom, form(c)) : pick(o.noms);
+          return { nom: pick(o.f.concat(o.m)) + ' ' + nom, lien, note: fill(pick(D.NOTES_REL), c) };
+        });
+      }
+    }
+  };
+  const LOOK_KEYS = ['av_coupe', 'av_cheveux', 'av_yeux', 'av_peau', 'av_pilo', 'av_lunettes', 'av_taches'];
+
+  const STEPS = [
+    { id: 'identite', short: 'Identité', title: 'Identité', color: '--l1', lede: 'Qui est ce personnage dans sa vie de tous les jours ?', fields: ['prenom', 'nom', 'surnom', 'age', 'genre', 'origine', 'ville', 'metier', 'situation', 'logement'] },
+    { id: 'apparence', short: 'Apparence', title: 'Apparence', color: '--l2', lede: 'Ce que les autres voient en le croisant dans la rue.', fields: ['taille', 'corpulence', 'photo', 'look', 'style', 'signes', 'attitude'] },
+    { id: 'personnalite', short: 'Personnalité', title: 'Personnalité', color: '--l3', lede: 'Ce qui le rend unique, ce qui le pousse à agir, ce qu\'il garde pour lui.', fields: ['traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret'] },
+    { id: 'histoire', short: 'Histoire', title: 'Histoire', color: '--l4', lede: 'D\'où il vient et où il en est aujourd\'hui.', fields: ['enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'notes'] },
+    { id: 'relations', short: 'Relations', title: 'Relations', color: '--l5', lede: 'Les personnes qui comptent déjà dans sa vie.', fields: ['rel'] },
+    { id: 'fiche', short: 'Fiche', title: 'Fiche', color: '--l6', lede: 'Relis, copie, partage.', fields: [] }
+  ];
+  const ORDER = ['genre', 'origine', 'prenom', 'nom', 'age', 'ville', 'metier', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel'];
+
+  const optsOf = d => d.opts.map(o => (typeof o === 'string' ? { v: o } : o));
+
+  /* ---------- modèle et stockage ---------- */
+  function blank() {
+    return {
+      id: newId(), created: Date.now(), updated: Date.now(), example: false, locks: {}, rel: [], photo: { src: '' },
+      v: { av_coupe: 'court', av_peau: 2, av_cheveux: 2, av_yeux: 1, av_pilo: 'non', av_lunettes: 'non', av_taches: 'non' }
+    };
+  }
+  const str = (x, n) => String(x == null ? '' : x).slice(0, n);
+  // reconstruit une fiche à partir de données non fiables (import, lien, stockage)
+  function clean(raw) {
+    const c = blank();
+    const rv = raw && typeof raw.v === 'object' && raw.v ? raw.v : {};
+    for (const k of Object.keys(F)) {
+      const d = F[k], x = rv[k];
+      if (x == null || d.t === 'rel' || d.t === 'look' || d.t === 'photo') continue;
+      if (d.t === 'text') c.v[k] = str(x, d.max || 80);
+      else if (d.t === 'area') c.v[k] = str(x, 4000);
+      else if (d.t === 'number') { const n = Math.round(Number(x)); if (isFinite(n)) c.v[k] = clamp(n, d.min, d.max); }
+      else if (d.t === 'chips') { const s = str(x, 120); if (d.custom || optsOf(d).some(o => o.v === s)) c.v[k] = s; }
+      else if (d.t === 'multi') { if (Array.isArray(x)) c.v[k] = x.slice(0, d.max).map(s => str(s, 120)).filter(Boolean); }
+      else if (d.t === 'swatch') { const n = parseInt(x, 10); if (n >= 0 && n < d.pal.length) c.v[k] = n; }
+    }
+    if (Array.isArray(raw && raw.rel)) c.rel = raw.rel.slice(0, 20).map(r => ({ nom: str(r && r.nom, 80), lien: str(r && r.lien, 40), note: str(r && r.note, 300) }));
+    const ph = raw && raw.photo;
+    if (ph && typeof ph === 'object') {
+      // seules les images JPEG, PNG ou WebP en data URL sont acceptées
+      const src = typeof ph.src === 'string' && ph.src.length < 900000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(ph.src) ? ph.src : '';
+      c.photo.src = src;
+    }
+    if (raw && raw.locks && typeof raw.locks === 'object') for (const k of Object.keys(raw.locks)) if (F[k]) c.locks[k] = true;
+    return c;
+  }
+
+  let store = { cur: null, order: [], chars: {} };
+  let storageOK = true;
+  // ph : image en cours de cadrage (élément image, taille, zoom, décalage) pour le personnage cid
+  const ui = { step: 0, shared: null, armed: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
+  const C = () => store.chars[store.cur];
+
+  function loadStore() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (!s || !s.chars || !Array.isArray(s.order)) return;
+      s.order.forEach(id => {
+        const x = s.chars[id];
+        if (!x) return;
+        const c = clean(x);
+        c.id = id; c.created = x.created || 0; c.updated = x.updated || 0; c.example = !!x.example;
+        store.chars[id] = c; store.order.push(id);
+      });
+      store.cur = store.chars[s.cur] ? s.cur : store.order[0] || null;
+    } catch (e) { storageOK = false; }
+  }
+  let saveTimer = 0;
+  function scheduleSave() { clearTimeout(saveTimer); setStatus('saving'); saveTimer = setTimeout(saveNow, 350); }
+  function saveNow() {
+    try { localStorage.setItem(KEY, JSON.stringify(store)); setStatus('saved'); }
+    catch (e) { storageOK = false; setStatus('nostore'); }
+  }
+  function setStatus(s) {
+    const el = $('#status');
+    if (!el) return;
+    el.textContent = s === 'saving' ? 'Enregistrement…' : s === 'nostore' ? 'Stockage du navigateur indisponible : exporte ta fiche pour la garder.' : 'Enregistré sur cet appareil';
+    el.dataset.state = s;
+  }
+  function addChar(c) { store.chars[c.id] = c; store.order.unshift(c.id); store.cur = c.id; ui.step = 0; }
+
+  function setVal(c, key, val) {
+    if (key === 'rel') c.rel = val;
+    else if (key === 'look') Object.assign(c.v, val);
+    else c.v[key] = val;
+  }
+  function genKeys(c, keys) {
+    ORDER.filter(k => keys.indexOf(k) >= 0 && !c.locks[k] && F[k].gen).forEach(k => setVal(c, k, F[k].gen(c)));
+  }
+
+  /* ---------- fiche : contenu et exports ---------- */
+  function allure(c) {
+    const v = c.v, cut = A.COUPES.find(o => o.v === v.av_coupe) || A.COUPES[0], parts = [];
+    if (v.taille) parts.push(v.taille + ' cm (' + imp(v.taille) + ')');
+    if (v.corpulence) parts.push('corpulence ' + lc(v.corpulence));
+    parts.push(cut.v === 'chauve' ? 'chauve' : 'cheveux ' + at(A.CHEVEUX, v.av_cheveux).n.toLowerCase() + ' ' + cut.p);
+    parts.push('yeux ' + at(A.YEUX, v.av_yeux).n.toLowerCase());
+    const pilo = A.PILOSITE.find(o => o.v === v.av_pilo);
+    if (pilo && pilo.v !== 'non') parts.push(pilo.l.toLowerCase());
+    const lun = A.LUNETTES.find(o => o.v === v.av_lunettes);
+    if (lun && lun.v !== 'non') parts.push('lunettes ' + lun.l.toLowerCase());
+    return cap(parts.join(', '));
+  }
+  function sheet(c) {
+    const v = c.v, f = form(c), d = k => disp(v[k], f), L = k => (v[k] || []).map(x => disp(x, f)).join(', ');
+    const groups = [];
+    const add = (title, rows) => { rows = rows.filter(r => r[1]); if (rows.length) groups.push({ title, rows }); };
+    add('Identité', [
+      ['Âge', v.age ? v.age + ' ans' : ''], ['Genre', v.genre],
+      ['Ville', v.ville], ['Métier', d('metier')], ['Origines', v.origine], ['Situation', d('situation')], ['Logement', v.logement]
+    ]);
+    add('Apparence', [['Allure', allure(c)], ['Style', L('style')], ['Signes distinctifs', v.signes], ['Voix et attitude', v.attitude]]);
+    add('Personnalité', [['Traits', L('traits')], ['Qualités', L('qualites')], ['Défauts', L('defauts')], ['Peurs', L('peurs')], ['Loisirs', L('loisirs')], ['Motivation', v.motivation], ['Manies', v.manies], ['Secret', v.secret]]);
+    add('Histoire', [['Enfance', v.enfance], ['Parcours', v.parcours], ['Événement marquant', d('evenement')], ['Aujourd\'hui', v.actuel], ['Accroches de RP', v.accroches], ['Notes', v.notes]]);
+    add('Relations', c.rel.filter(r => r.nom || r.note).map(r => [(r.nom || '?') + (r.lien ? ' (' + r.lien + ')' : ''), r.note || '–']));
+    return {
+      first: d('prenom'), last: d('nom'), nick: v.surnom || '',
+      name: [d('prenom'), v.surnom ? '« ' + v.surnom + ' »' : '', d('nom')].filter(Boolean).join(' '),
+      sub: [d('metier'), v.age ? v.age + ' ans' : '', v.ville].filter(Boolean).join(' · '),
+      groups
+    };
+  }
+  function toText(c, md) {
+    const s = sheet(c), out = [];
+    const title = s.name || 'Personnage sans nom';
+    out.push(md ? '**' + title + '**' : title.toUpperCase());
+    if (s.sub) out.push(md ? '*' + s.sub + '*' : s.sub);
+    s.groups.forEach(g => {
+      out.push('', md ? '**' + g.title + '**' : '— ' + g.title.toUpperCase() + ' —');
+      g.rows.forEach(r => {
+        const long = r[1].indexOf('\n') >= 0 || r[1].length > 110;
+        const lab = md ? '**' + r[0] + '**' : r[0];
+        out.push(long ? lab + (md ? '' : ' :') + '\n' + r[1] : lab + ' : ' + r[1]);
+      });
+    });
+    return out.join('\n');
+  }
+  function mrz(c) {
+    const v = c.v, f = form(c);
+    const cl = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '<');
+    const l1 = ('P<FIC' + cl(disp(v.nom, f)) + '<<' + cl(disp(v.prenom, f))).padEnd(36, '<').slice(0, 36);
+    const idn = (c.id + '000000000').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
+    const l2 = (idn + '<FIC' + String(v.age || 0).padStart(3, '0').slice(-3) + { f: 'F', m: 'M', x: 'X' }[f] + '<').padEnd(36, '<').slice(0, 36);
+    return l1 + '\n' + l2;
+  }
+  const LINE_COLORS = ['--l1', '--l2', '--l3', '--l4', '--l5', '--l6'];
+  function cardHTML(c, full) {
+    const s = sheet(c), v = c.v, f = form(c);
+    const dd = (k, val, wide) => `<div${wide ? ' class="wide"' : ''}><dt>${k}</dt><dd>${val ? esc(val) : '<span class="ph">–</span>'}</dd></div>`;
+    const sec = (title, inner) => `<section class="idc-sec"><h4>${title}</h4>${inner}</section>`;
+    const chips = arr => (arr.length ? `<ul class="idc-chips">${arr.map(x => `<li>${esc(disp(x, f))}</li>`).join('')}</ul>` : '<p class="ph">À compléter</p>');
+    let body = '';
+    if (full) {
+      s.groups.forEach(g => {
+        const rows = g.title === 'Identité' ? g.rows.filter(r => ['Âge', 'Genre', 'Ville', 'Métier'].indexOf(r[0]) < 0) : g.rows;
+        if (rows.length) body += sec(g.title, `<dl class="idc-rows">${rows.map(r => `<div><dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd></div>`).join('')}</dl>`);
+      });
+    } else {
+      const story = v.enfance || v.parcours || v.actuel || '';
+      body += sec('Traits', chips(v.traits || []));
+      body += sec('Allure', `<p>${esc(allure(c))}</p>`);
+      body += sec('Histoire', story ? `<p>${esc(story.length > 190 ? story.slice(0, 190).replace(/\s+\S*$/, '') + '…' : story)}</p>` : '<p class="ph">À compléter</p>');
+      const rel = c.rel.filter(r => r.nom);
+      body += sec('Relations', rel.length ? `<ul class="idc-rel">${rel.slice(0, 3).map(r => `<li><b>${esc(r.nom)}</b>${r.lien ? ' <span>' + esc(r.lien) + '</span>' : ''}</li>`).join('')}${rel.length > 3 ? `<li class="ph">+ ${rel.length - 3} autre${rel.length > 4 ? 's' : ''}</li>` : ''}</ul>` : '<p class="ph">À compléter</p>');
+    }
+    return `<article class="idcard${full ? ' full' : ''}">
+<div class="idc-stripe" aria-hidden="true">${LINE_COLORS.map(k => `<i style="background:var(${k})"></i>`).join('')}</div>
+<header class="idc-head"><span>Carte de personnage</span><span>Fictif · RP</span></header>
+<div class="idc-id">
+<figure class="idc-photo">${portrait(c)}</figure>
+<div class="idc-who">
+<h3 class="idc-name"><span class="idc-first">${esc(s.first) || '<span class="ph">Prénom</span>'}</span>${s.nick ? ` <span class="idc-nick">« ${esc(s.nick)} »</span>` : ''}<span class="idc-last">${esc(s.last.toUpperCase()) || '<span class="ph">NOM</span>'}</span></h3>
+<dl class="idc-dl">${dd('Âge', v.age ? v.age + ' ans' : '')}${dd('Genre', v.genre)}${dd('Ville', v.ville)}${dd('Métier', disp(v.metier, f))}</dl>
+</div></div>
+${body}
+${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act="goto" data-i="5">Voir la fiche complète</button></div>'}
+<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n', '<br>')}</footer>
+</article>`;
+  }
+
+  /* ---------- rendu des champs ---------- */
+  const toolsHTML = (key, label, locked) =>
+    `<span class="tools"><button type="button" class="tool" data-act="roll" data-key="${key}" aria-label="Tirer au sort : ${esc(label)}" title="Tirer au sort"${locked ? ' disabled' : ''}>${ICON.die}</button>` +
+    `<button type="button" class="tool" data-act="lock" data-key="${key}" aria-pressed="${!!locked}" aria-label="Verrouiller : ${esc(label)}" title="${locked ? 'Déverrouiller' : 'Verrouiller'}">${locked ? ICON.lock : ICON.unlock}</button></span>`;
+  const chipBtn = (key, val, label, on) => `<button type="button" class="chip" data-act="chip" data-key="${key}" data-v="${esc(val)}" aria-pressed="${on}">${esc(label)}</button>`;
+
+  /* ---------- image choisie par la personne ---------- */
+  const phEditing = c => !!(ui.ph.img && ui.ph.cid === c.id);
+
+  function phViewHTML(c) {
+    if (phEditing(c)) return `<img class="ph-edit-img" id="phImg" src="${esc(ui.ph.url)}" alt="Image à cadrer" draggable="false">`;
+    if (c.photo.src) return `<img class="photo-img" src="${c.photo.src}" alt="Image du personnage">`;
+    return `<button type="button" class="ph-empty" data-act="phPick">${ICON.up}<span>Dépose une image ici<br>ou clique pour choisir un fichier</span></button>`;
+  }
+  function photoHTML(c) {
+    const has = !!c.photo.src, ed = phEditing(c);
+    const ctl = ed
+      ? `<div class="field"><div class="field-head"><label class="lbl" for="phZoom">Zoom</label></div><input type="range" id="phZoom" min="1" max="3" step="0.01" value="${ui.ph.zoom}"></div>
+<p class="hint">Fais glisser l'image dans le cadre pour la placer, ou utilise les flèches du clavier. Le cadre correspond au portrait de la fiche.</p>
+<div class="btnrow"><button type="button" class="btn primary" data-act="phUse">Utiliser cette image</button><button type="button" class="btn" data-act="phCancel">Annuler</button></div>`
+      : `<p class="hint">Mets l'image que tu veux : une photo, une image générée ailleurs avec une IA (Midjourney, ChatGPT, Designer...) ou un dessin. Elle est recadrée au format du portrait. Sans image, la fiche affiche une silhouette.</p>
+<div class="btnrow"><button type="button" class="btn primary" data-act="phPick">${ICON.up} ${has ? 'Changer l\'image' : 'Choisir une image'}</button>${has ? `<button type="button" class="btn" data-act="phClear">${ICON.trash} Retirer l'image</button>` : ''}</div>`;
+    return `<div class="field full photo-block" data-field="photo"><div class="field-head"><span class="lbl" id="l-photo">Image du personnage</span></div>
+<div class="photo-grid"><div class="photo-view${ed ? ' editing' : ''}" id="phView" data-drop${ed ? ' tabindex="0" aria-label="Cadre du portrait : fais glisser l\'image"' : ''}>${phViewHTML(c)}</div>
+<div class="photo-ctl">${ctl}<p class="ph-msg" id="phMsg" role="status" aria-live="polite" data-state="${ui.ph.status}">${esc(ui.ph.msg)}</p>
+<p class="hint">Ton image reste dans ton navigateur : elle n'est envoyée nulle part. Elle figure dans l'export .json, pas dans le lien de partage.</p>
+<input type="file" id="phFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden></div></div></div>`;
+  }
+  // place l'image dans le cadre selon le zoom et le décalage choisis
+  function phLayout() {
+    const f = $('#phView'), im = $('#phImg');
+    if (!f || !im || !ui.ph.img) return;
+    const r = f.getBoundingClientRect();
+    if (!r.width) return;
+    const p = P.place(ui.ph.w, ui.ph.h, r.width, r.height, ui.ph.zoom, ui.ph.fx, ui.ph.fy);
+    ui.ph.fx = p.fx; ui.ph.fy = p.fy;
+    im.style.width = p.w + 'px'; im.style.height = p.h + 'px'; im.style.left = p.left + 'px'; im.style.top = p.top + 'px';
+  }
+  function phStop() {
+    if (ui.ph.url) URL.revokeObjectURL(ui.ph.url);
+    Object.assign(ui.ph, { img: null, url: '', cid: null });
+  }
+  function phOpen(file) {
+    const c = C();
+    P.load(file).then(r => {
+      phStop();
+      Object.assign(ui.ph, { img: r.img, url: r.url, w: r.w, h: r.h, zoom: 1, fx: 0, fy: 0, cid: c.id, status: 'idle', msg: '' });
+      refreshField('photo');
+    }).catch(err => {
+      Object.assign(ui.ph, { status: 'error', msg: err && err.message ? err.message : 'Cette image ne peut pas être lue.' });
+      refreshField('photo');
+    });
+  }
+
+  const tailleHint = v => (v ? 'Soit ' + imp(v) + ' en pieds et pouces.' : 'En centimètres. La conversion en pieds et pouces s\'affiche ici.');
+  function updateTailleHint() { const h = $('#h-taille'); if (h) h.textContent = tailleHint(C().v.taille); }
+
+  function fieldHTML(key, c) {
+    const d = F[key], f = form(c), v = c.v[key], locked = !!c.locks[key];
+    if (d.t === 'photo') return photoHTML(c);
+    if (d.t === 'look') {
+      return `<div class="field full look-block" data-field="look"><div class="field-head"><span class="lbl" id="l-look">Traits physiques</span>${toolsHTML('look', 'Traits physiques', locked)}</div>
+<div class="look-grid">${LOOK_KEYS.map(k => fieldHTML(k, c)).join('')}</div></div>`;
+    }
+    const count = d.t === 'multi' ? ` <small>${(v || []).length}/${d.max}</small>` : '';
+    const textual = d.t === 'text' || d.t === 'number' || d.t === 'area';
+    const label = textual ? `<label class="lbl" id="l-${key}" for="f-${key}">${esc(d.label)}</label>` : `<span class="lbl" id="l-${key}">${esc(d.label)}${count}</span>`;
+    let ctl = '';
+    if (d.t === 'text') {
+      ctl = `<input class="in" id="f-${key}" data-key="${key}" type="text" value="${esc(disp(v, f))}" placeholder="${esc(d.ph || '')}" maxlength="${d.max || 80}" autocomplete="off"${d.list ? ` list="dl-${d.list}"` : ''}>`;
+    } else if (d.t === 'number') {
+      ctl = `<div class="num"><input class="in" id="f-${key}" data-key="${key}" type="number" inputmode="numeric" min="${d.min}" max="${d.max}" value="${v == null ? '' : esc(v)}"><span class="unit">${d.unit}</span></div>`;
+    } else if (d.t === 'area') {
+      ctl = `<textarea class="in" id="f-${key}" data-key="${key}" rows="${d.rows || 3}" placeholder="${esc(d.ph || '')}" maxlength="4000">${esc(v || '')}</textarea>`;
+    } else if (d.t === 'chips' || d.t === 'multi') {
+      const opts = optsOf(d), multi = d.t === 'multi', sel = multi ? (v || []) : (v ? [v] : []);
+      let chips = opts.map(o => chipBtn(key, o.v, o.l != null ? o.l : disp(o.v, f), sel.indexOf(o.v) >= 0)).join('');
+      chips += sel.filter(x => !opts.some(o => o.v === x)).map(x => chipBtn(key, x, disp(x, f), true)).join('');
+      if (d.custom) chips += `<input class="chip-in" type="text" data-custom="1" data-key="${key}" placeholder="+ Autre" maxlength="40" aria-label="Ajouter une valeur : ${esc(d.label)}">`;
+      ctl = `<div class="chips" role="group" aria-labelledby="l-${key}">${chips}</div>`;
+    } else if (d.t === 'swatch') {
+      ctl = `<div class="swatches" role="group" aria-labelledby="l-${key}">${d.pal.map((p, i) => `<button type="button" class="sw" style="--c:${p.h}" data-act="sw" data-key="${key}" data-v="${i}" aria-pressed="${String(v) === String(i)}" aria-label="${esc(p.n)}" title="${esc(p.n)}"></button>`).join('')}</div>`;
+    } else if (d.t === 'rel') {
+      const liens = D.LIENS;
+      ctl = c.rel.length ? `<div class="rels">${c.rel.map((r, i) => {
+        const known = liens.indexOf(r.lien) >= 0;
+        return `<div class="rel"><input class="in" data-rel="nom" data-i="${i}" type="text" value="${esc(r.nom)}" placeholder="Nom" maxlength="80" aria-label="Nom de la relation ${i + 1}">` +
+          `<select class="in" data-rel="lien" data-i="${i}" aria-label="Lien avec ${esc(r.nom || 'cette personne')}"><option value=""${r.lien ? '' : ' selected'}>Lien…</option>${liens.map(l => `<option${l === r.lien ? ' selected' : ''}>${esc(l)}</option>`).join('')}${r.lien && !known ? `<option selected>${esc(r.lien)}</option>` : ''}</select>` +
+          `<input class="in" data-rel="note" data-i="${i}" type="text" value="${esc(r.note)}" placeholder="Qui est cette personne pour lui ou elle ?" maxlength="300" aria-label="Description de la relation ${i + 1}">` +
+          `<button type="button" class="tool danger" data-act="relDel" data-i="${i}" aria-label="Supprimer la relation ${i + 1}" title="Supprimer">${ICON.trash}</button></div>`;
+      }).join('')}</div>` : '<p class="empty">Aucune relation pour l\'instant. Ajoutes-en une, ou tire-en trois au sort avec le dé.</p>';
+      ctl += `<div class="rel-actions"><button type="button" class="btn" data-act="relAdd">${ICON.plus} Ajouter une relation</button></div>`;
+    }
+    const tools = d.gen ? toolsHTML(key, d.label, locked) : '';
+    const wide = d.t === 'rel' || d.t === 'chips' && d.w !== 'half' || d.t === 'multi' || d.t === 'swatch' || d.t === 'area';
+    const hint = key === 'taille' ? tailleHint(v) : d.hint;
+    return `<div class="field${wide ? ' full' : ''}" data-field="${key}"><div class="field-head">${label}${tools}</div>${ctl}${hint ? `<p class="hint"${key === 'taille' ? ' id="h-taille"' : ''}>${esc(hint)}</p>` : ''}</div>`;
+  }
+
+  /* ---------- assistance de Claude (demande à copier) ---------- */
+  const TASKS = {
+    passe: 'Écris le passé de ce personnage en deux ou trois paragraphes, cohérent avec la fiche. Sois concret (lieux, personnes, dates approximatives) et évite les clichés.',
+    relations: 'Propose quatre relations importantes pour ce personnage (nom, lien, une ou deux phrases sur leur dynamique), cohérentes avec la fiche.',
+    accroches: 'Propose cinq accroches de RP : des situations dans lesquelles un autre joueur pourrait aborder ce personnage ou être entraîné dans son histoire.',
+    psycho: 'Approfondis la personnalité : trois contradictions intéressantes, trois habitudes concrètes et deux réactions typiques quand il ou elle est sous pression.',
+    relecture: 'Relis la fiche, signale les incohérences éventuelles et propose des corrections ou des pistes pour la rendre plus vivante.'
+  };
+  function claudeHTML() {
+    return `<details class="claude" id="claudeBox"><summary>${ICON.spark}<span>Besoin d'inspiration ? Demande à Claude</span></summary>
+<div class="claude-body">
+<p>Le site ne se connecte pas à Claude tout seul. Il prépare une demande à partir de ta fiche : tu la copies, tu la colles dans Claude, puis tu rapportes la réponse ici.</p>
+<div class="field"><div class="field-head"><label class="lbl" for="ctask">Que veux-tu demander ?</label></div>
+<select class="in" id="ctask"><option value="passe">Écrire le passé du personnage</option><option value="relations">Proposer des relations</option><option value="accroches">Trouver des accroches de RP</option><option value="psycho">Approfondir la personnalité</option><option value="relecture">Relire et corriger la fiche</option></select></div>
+<div class="btnrow"><button type="button" class="btn primary" data-act="copyPrompt">${ICON.copy} Copier la demande</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Ouvrir Claude</a></div>
+<div class="field"><div class="field-head"><label class="lbl" for="creply">Réponse de Claude</label></div><textarea class="in" id="creply" rows="5" placeholder="Colle ici ce que Claude a répondu, puis choisis où l'insérer."></textarea></div>
+<div class="btnrow"><label class="lbl inline" for="ctarget">Insérer dans</label><select class="in short" id="ctarget"><option value="enfance">Origines et enfance</option><option value="parcours">Études et parcours</option><option value="actuel">Aujourd'hui</option><option value="accroches">Accroches de RP</option><option value="notes">Notes libres</option></select><button type="button" class="btn" data-act="insertReply">Insérer</button></div>
+</div></details>`;
+  }
+  function buildPrompt(c, task) {
+    return 'Je crée un personnage pour un jeu de rôle (RP) contemporain et réaliste, sans surnaturel, qui se déroule aux États-Unis. Voici sa fiche actuelle :\n\n' + toText(c, false) +
+      '\n\nDemande : ' + TASKS[task] + '\n\nRéponds en français, avec un ton naturel et sans titres superflus, de façon à ce que je puisse copier ton texte tel quel dans ma fiche.';
+  }
+
+  /* ---------- rendu général ---------- */
+  function ficheHTML(c) {
+    const local = location.protocol === 'file:';
+    return `<div class="fiche"><div class="fiche-card">${cardHTML(c, true)}</div>
+<div class="fiche-side">
+<div class="box"><h3>Copier la fiche</h3><p class="hint">Mise en forme prête à coller dans Discord, un forum ou un document.</p>
+<div class="btnrow"><button type="button" class="btn primary" data-act="copyMd">${ICON.copy} Pour Discord</button><button type="button" class="btn" data-act="copyTxt">${ICON.copy} Texte brut</button></div></div>
+<div class="box"><h3>Garder et partager</h3>
+<div class="btnrow"><button type="button" class="btn" data-act="copyLink">${ICON.link} Lien de partage</button><button type="button" class="btn" data-act="dlJson">${ICON.down} Fichier .json</button>${c.photo.src ? `<button type="button" class="btn" data-act="dlPortrait">${ICON.down} Image (.jpg)</button>` : ''}</div>
+<p class="hint">Le lien contient toute la fiche et n'utilise aucun serveur : la personne qui l'ouvre peut l'ajouter à ses personnages.${local ? ' Il ne fonctionnera qu\'une fois le site publié.' : ''}</p></div>
+<div class="box"><h3>Ajouter un personnage</h3><div class="btnrow"><button type="button" class="btn" data-act="openImport">${ICON.up} Importer une fiche</button><button type="button" class="btn" data-act="newBlank">${ICON.plus} Fiche vierge</button></div></div>
+</div></div>`;
+  }
+  function panelHTML() {
+    const i = ui.step, s = STEPS[i], c = C();
+    const head = `<header class="step-head"><p class="kicker">Étape ${i + 1} sur ${STEPS.length}</p><h2 tabindex="-1">${s.title}</h2><p class="lede">${s.lede}</p>` +
+      (s.fields.length ? `<div class="step-tools"><button type="button" class="btn" data-act="genStep">${ICON.die} Tirer cette étape au sort</button><span class="hint">Les champs verrouillés restent tels quels.</span></div>` : '') + '</header>';
+    let body;
+    if (s.id === 'fiche') body = ficheHTML(c);
+    else {
+      body = `<div class="fields">${s.fields.map(k => fieldHTML(k, c)).join('')}</div>`;
+      if (s.id === 'identite') body += `<datalist id="dl-villes">${D.VILLES.map(x => `<option value="${esc(x)}">`).join('')}</datalist><datalist id="dl-metiers">${D.METIERS.map(x => `<option value="${esc(disp(x, form(c)))}">`).join('')}</datalist>`;
+      if (s.id === 'histoire') body += claudeHTML();
+    }
+    const foot = `<footer class="step-foot">${i > 0 ? `<button type="button" class="btn" data-act="prev">${ICON.left} ${STEPS[i - 1].short}</button>` : '<span></span>'}${i < STEPS.length - 1 ? `<button type="button" class="btn primary" data-act="next">${STEPS[i + 1].short} ${ICON.right}</button>` : ''}</footer>`;
+    return `<section class="step" data-step="${s.id}" style="--accent:var(${s.color})">${head}${body}${foot}</section>`;
+  }
+  function renderPanel() {
+    $('#panel').innerHTML = panelHTML();
+    phLayout();
+    $('.layout').classList.toggle('no-preview', STEPS[ui.step].id === 'fiche');
+    document.body.classList.remove('show-preview');
+  }
+  function renderPreview() {
+    $('#preview').innerHTML = `<div class="preview-bar"><span>Aperçu de la fiche</span><button type="button" class="btn" data-act="closePreview">Fermer</button></div>${cardHTML(C(), false)}`;
+  }
+  function renderLine() {
+    $('#line').innerHTML = `<ol class="stations">${STEPS.map((s, i) => `<li class="station${i < ui.step ? ' done' : ''}${i === ui.step ? ' current' : ''}" style="--c:var(${s.color})"><button type="button" data-act="goto" data-i="${i}"${i === ui.step ? ' aria-current="step"' : ''}><span class="dot"></span><span class="name">${s.short}</span></button></li>`).join('')}</ol>`;
+  }
+  function renderTop() {
+    const n = store.order.length;
+    $('#charCount').textContent = n;
+  }
+  function renderBanner() {
+    const c = C();
+    let h = '';
+    if (ui.shared) {
+      const s = sheet(ui.shared);
+      h += `<div class="banner"><p>Un personnage a été partagé via ce lien : <b>${esc(s.name || 'sans nom')}</b>.</p><div class="btnrow"><button type="button" class="btn primary" data-act="shareAdd">Ajouter à mes personnages</button><button type="button" class="btn" data-act="shareDismiss">Ignorer</button></div></div>`;
+    }
+    if (c && c.example) {
+      h += `<div class="banner"><p><b>Personnage d'exemple.</b> Il a été tiré au sort pour montrer ce que donne une fiche. Modifie-le, relance des champs, ou pars d'une fiche vierge.</p><div class="btnrow"><button type="button" class="btn primary" data-act="newBlank">Fiche vierge</button><button type="button" class="btn" data-act="keepExample">Garder cet exemple</button></div></div>`;
+    }
+    $('#banner').innerHTML = h;
+  }
+  function renderAll() { renderTop(); renderBanner(); renderLine(); renderPanel(); renderPreview(); }
+
+  function sigOf(a) {
+    const w = a && a.closest && a.closest('[data-field]');
+    if (!w) return null;
+    return { k: w.dataset.field, tag: a.tagName.toLowerCase(), act: a.dataset.act, v: a.dataset.v, custom: a.dataset.custom, rel: a.dataset.rel, i: a.dataset.i };
+  }
+  function restore(sig) {
+    if (!sig) return;
+    const w = $(`[data-field="${sig.k}"]`);
+    if (!w) return;
+    const m = $$(sig.tag, w).find(x => x.dataset.act === sig.act && x.dataset.v === sig.v && x.dataset.custom === sig.custom && x.dataset.rel === sig.rel && x.dataset.i === sig.i);
+    if (m) m.focus({ preventScroll: true });
+  }
+  function refreshField(key) {
+    const el = $(`[data-field="${key}"]`);
+    if (!el) return;
+    const sig = sigOf(document.activeElement);
+    el.outerHTML = fieldHTML(key, C());
+    restore(sig);
+    if (key === 'photo') phLayout();
+  }
+  function refreshAllFields() {
+    $$('[data-field]').forEach(w => { if (w.isConnected) refreshField(w.dataset.field); });
+  }
+  function afterChange(key) {
+    renderPreview(); renderTop(); scheduleSave();
+  }
+  function changed(key) {
+    const c = C();
+    c.updated = Date.now();
+    if (c.example) { c.example = false; renderBanner(); }
+    if (key === 'genre') refreshAllFields(); else refreshField(key);
+    afterChange(key);
+  }
+  function go(i) {
+    ui.step = clamp(i, 0, STEPS.length - 1);
+    renderLine(); renderPanel(); renderPreview();
+    const h = $('#panel h2');
+    if (h) h.focus({ preventScroll: true });
+    $('#line').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  /* ---------- presse-papiers, fichiers, partage ---------- */
+  async function copyText(text, msg) {
+    try { await navigator.clipboard.writeText(text); toast(msg || 'Copié.'); return; } catch (e) { /* repli ci-dessous */ }
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { /* ignoré */ }
+    ta.remove();
+    toast(ok ? (msg || 'Copié.') : 'Copie impossible : sélectionne le texte à la main.');
+  }
+  const slug = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'personnage';
+  function saveFile(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+  const b64u = bytes => {
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  };
+  const unb64u = t => {
+    t = t.replace(/-/g, '+').replace(/_/g, '/');
+    while (t.length % 4) t += '=';
+    const bin = atob(t), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  };
+  async function pipe(bytes, stream) {
+    const w = stream.writable.getWriter();
+    w.write(bytes); w.close();
+    return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+  }
+  async function encodeShare(c) {
+    const bytes = new TextEncoder().encode(JSON.stringify({ v: c.v, rel: c.rel }));
+    let out = 'j.' + b64u(bytes);
+    if ('CompressionStream' in window) {
+      try { const z = 'z.' + b64u(await pipe(bytes, new CompressionStream('gzip'))); if (z.length < out.length) out = z; } catch (e) { /* on garde la version simple */ }
+    }
+    return out;
+  }
+  async function decodeShare(s) {
+    if (s.length > 80000) throw new Error('trop long');
+    const kind = s.slice(0, 2);
+    let bytes = unb64u(s.slice(2));
+    if (kind === 'z.') bytes = await pipe(bytes, new DecompressionStream('gzip'));
+    else if (kind !== 'j.') throw new Error('format');
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+  async function parseImport(text) {
+    text = text.trim();
+    if (!text) throw new Error('Colle un lien, un texte JSON ou choisis un fichier.');
+    const link = text.match(/#p=([^\s]+)/);
+    if (link) return clean(await decodeShare(link[1]));
+    if (/^[jz]\.[\w-]+$/.test(text)) return clean(await decodeShare(text));
+    const obj = JSON.parse(text);
+    return clean(obj && obj.character ? obj.character : obj);
+  }
+
+  /* ---------- fenêtres ---------- */
+  function charsListHTML() {
+    return store.order.map(id => {
+      const c = store.chars[id], s = sheet(c), armed = ui.armed === id;
+      return `<li class="chr${id === store.cur ? ' cur' : ''}"><button type="button" class="chr-main" data-act="openChar" data-id="${id}"><span class="chr-av">${portrait(c, true)}</span><span class="chr-t"><b>${esc(s.name || 'Personnage sans nom')}</b><small>${esc(s.sub || 'Fiche vide')}</small></span></button>` +
+        `<button type="button" class="tool" data-act="dupChar" data-id="${id}" aria-label="Dupliquer ${esc(s.name || 'ce personnage')}" title="Dupliquer">${ICON.copy}</button>` +
+        `<button type="button" class="tool danger${armed ? ' armed' : ''}" data-act="delChar" data-id="${id}" aria-label="${armed ? 'Confirmer la suppression de' : 'Supprimer'} ${esc(s.name || 'ce personnage')}" title="${armed ? 'Cliquer pour confirmer' : 'Supprimer'}">${armed ? 'Confirmer' : ICON.trash}</button></li>`;
+    }).join('');
+  }
+  function openChars() {
+    ui.armed = null;
+    const dlg = $('#dlgChars');
+    $('#charsList').innerHTML = charsListHTML();
+    if (!dlg.open) dlg.showModal();
+  }
+  function closeDialogs() { $$('dialog[open]').forEach(d => d.close()); }
+
+  /* ---------- actions ---------- */
+  function newBlank() {
+    const c = blank();
+    addChar(c); ui.armed = null; closeDialogs();
+    renderAll(); scheduleSave(); $('#line').scrollIntoView({ block: 'start' });
+    toast('Nouvelle fiche vierge.');
+  }
+  function genAllNow() {
+    const c = C();
+    genKeys(c, ORDER);
+    c.example = false; c.updated = Date.now();
+    renderAll(); scheduleSave();
+    toast(Object.keys(c.locks).length ? 'Personnage tiré au sort, champs verrouillés conservés.' : 'Personnage tiré au sort.');
+  }
+  function roll(key) {
+    const c = C();
+    setVal(c, key, F[key].gen(c));
+    changed(key);
+    if (key === 'prenom' || key === 'nom') renderPreview();
+  }
+  function toggleChip(key, val) {
+    const d = F[key], c = C();
+    if (d.t === 'multi') {
+      const a = (c.v[key] || []).slice(), i = a.indexOf(val);
+      if (i >= 0) a.splice(i, 1);
+      else { if (a.length >= d.max) { toast('Maximum ' + d.max + ' choix : retires-en un d\'abord.'); return; } a.push(val); }
+      c.v[key] = a;
+    } else c.v[key] = c.v[key] === val ? '' : val;
+    changed(key);
+  }
+  function addCustom(key, text) {
+    const d = F[key], c = C();
+    text = text.trim().slice(0, 40);
+    if (!text) return;
+    if (d.t === 'multi') {
+      const a = (c.v[key] || []).slice();
+      if (a.indexOf(text) < 0) { if (a.length >= d.max) { toast('Maximum ' + d.max + ' choix : retires-en un d\'abord.'); return; } a.push(text); }
+      c.v[key] = a;
+    } else c.v[key] = text;
+    changed(key);
+  }
+
+  document.addEventListener('click', e => {
+    const dlg = e.target;
+    if (dlg.tagName === 'DIALOG') { dlg.close(); return; }
+    const b = e.target.closest('[data-act]');
+    if (!b || b.disabled) return;
+    const act = b.dataset.act, key = b.dataset.key, c = C();
+    switch (act) {
+      case 'chip': toggleChip(key, b.dataset.v); break;
+      case 'sw': c.v[key] = Number(b.dataset.v); changed(key); break;
+      case 'roll': roll(key); break;
+      case 'lock':
+        if (c.locks[key]) delete c.locks[key]; else c.locks[key] = true;
+        refreshField(key); scheduleSave(); break;
+      case 'goto': go(Number(b.dataset.i)); break;
+      case 'prev': go(ui.step - 1); break;
+      case 'next': go(ui.step + 1); break;
+      case 'genStep': {
+        genKeys(c, STEPS[ui.step].fields);
+        c.example = false; c.updated = Date.now();
+        renderBanner(); renderPanel(); renderPreview(); scheduleSave();
+        toast('Étape tirée au sort.'); break;
+      }
+      case 'genAll': genAllNow(); break;
+      case 'relAdd': c.rel.push({ nom: '', lien: '', note: '' }); changed('rel'); break;
+      case 'relDel': c.rel.splice(Number(b.dataset.i), 1); changed('rel'); break;
+      case 'openPreview': document.body.classList.add('show-preview'); $('#preview').scrollTop = 0; break;
+      case 'closePreview': document.body.classList.remove('show-preview'); break;
+      case 'newBlank': newBlank(); break;
+      case 'keepExample': c.example = false; renderBanner(); scheduleSave(); break;
+      case 'openChars': openChars(); break;
+      case 'closeDlg': closeDialogs(); break;
+      case 'openChar':
+        store.cur = b.dataset.id; ui.step = 0; ui.armed = null; closeDialogs(); renderAll(); scheduleSave(); break;
+      case 'dupChar': {
+        const src = store.chars[b.dataset.id], n = clean({ v: src.v, rel: src.rel, photo: src.photo });
+        if (n.v.prenom) n.v.prenom += ' (copie)'; else n.v.nom = (n.v.nom || '') + ' (copie)';
+        addChar(n); closeDialogs(); renderAll(); scheduleSave(); toast('Personnage dupliqué.'); break;
+      }
+      case 'delChar': {
+        const id = b.dataset.id;
+        if (ui.armed !== id) { ui.armed = id; $('#charsList').innerHTML = charsListHTML(); break; }
+        delete store.chars[id]; store.order = store.order.filter(x => x !== id); ui.armed = null;
+        if (!store.order.length) { addChar(blank()); closeDialogs(); renderAll(); }
+        else { if (store.cur === id) { store.cur = store.order[0]; ui.step = 0; renderAll(); } $('#charsList').innerHTML = charsListHTML(); }
+        renderTop(); scheduleSave(); break;
+      }
+      case 'openImport': closeDialogs(); $('#impMsg').textContent = ''; $('#impText').value = ''; $('#dlgImport').showModal(); break;
+      case 'doImport': {
+        parseImport($('#impText').value).then(n => {
+          addChar(n); closeDialogs(); renderAll(); scheduleSave(); toast('Fiche importée.');
+        }).catch(err => { $('#impMsg').textContent = err && err.message && !/JSON|Unexpected|format|trop/.test(err.message) ? err.message : 'Ce texte n\'est pas une fiche valide.'; });
+        break;
+      }
+      case 'shareAdd': { ui.shared.id = newId(); addChar(ui.shared); ui.shared = null; history.replaceState(null, '', location.pathname + location.search); renderAll(); scheduleSave(); toast('Personnage ajouté.'); break; }
+      case 'shareDismiss': ui.shared = null; history.replaceState(null, '', location.pathname + location.search); renderBanner(); break;
+      case 'copyMd': {
+        const t = toText(c, true);
+        copyText(t, t.length > 2000 ? 'Copié, mais plus de 2000 caractères : Discord demandera de découper le message.' : 'Fiche copiée au format Discord.'); break;
+      }
+      case 'copyTxt': copyText(toText(c, false), 'Fiche copiée en texte brut.'); break;
+      case 'copyLink': encodeShare(c).then(p => copyText(location.href.split('#')[0] + '#p=' + p, 'Lien de partage copié.')); break;
+      case 'dlJson': saveFile(slug(sheet(c).name) + '.json', JSON.stringify({ app: 'ligne-de-vie', version: 1, character: { v: c.v, rel: c.rel, photo: c.photo } }, null, 2), 'application/json'); break;
+      case 'dlPortrait':
+        if (c.photo.src) fetch(c.photo.src).then(r => r.blob()).then(b => saveFile(slug(sheet(c).name) + '-portrait.jpg', b, 'image/jpeg'));
+        break;
+      case 'phPick': { const f = $('#phFile'); if (f) f.click(); break; }
+      case 'phUse':
+        if (phEditing(c)) {
+          c.photo.src = P.crop(ui.ph.img, ui.ph.w, ui.ph.h, ui.ph.zoom, ui.ph.fx, ui.ph.fy);
+          phStop(); Object.assign(ui.ph, { status: 'idle', msg: '' });
+          changed('photo'); toast('Image enregistrée.');
+        }
+        break;
+      case 'phCancel': phStop(); Object.assign(ui.ph, { status: 'idle', msg: '' }); refreshField('photo'); break;
+      case 'phClear': c.photo.src = ''; changed('photo'); toast('Image retirée.'); break;
+      case 'copyPrompt': copyText(buildPrompt(c, $('#ctask').value), 'Demande copiée : colle-la dans Claude.'); break;
+      case 'insertReply': {
+        const txt = $('#creply').value.trim(), k = $('#ctarget').value;
+        if (!txt) { toast('Colle d\'abord la réponse de Claude.'); break; }
+        c.v[k] = (c.v[k] ? c.v[k] + '\n\n' : '') + txt;
+        $('#creply').value = ''; changed(k); toast('Texte inséré dans « ' + F[k].label + ' ».'); break;
+      }
+      default: break;
+    }
+  });
+
+  document.addEventListener('input', e => {
+    const t = e.target, c = C();
+    if (t.dataset.rel) {
+      const r = c.rel[Number(t.dataset.i)];
+      if (r) { r[t.dataset.rel] = t.value; c.updated = Date.now(); afterChange('rel'); }
+      return;
+    }
+    if (t.id === 'phZoom') { ui.ph.zoom = clamp(Number(t.value) || 1, 1, 3); phLayout(); return; }
+    const key = t.dataset.key;
+    if (!key || t.dataset.custom || !F[key]) return;
+    if (F[key].t === 'number') {
+      const n = t.value === '' ? NaN : Math.round(Number(t.value));
+      if (isFinite(n)) c.v[key] = n; else delete c.v[key];
+    } else c.v[key] = t.value;
+    c.updated = Date.now();
+    if (c.example) { c.example = false; renderBanner(); }
+    if (key === 'taille') updateTailleHint();
+    afterChange(key);
+  });
+  document.addEventListener('change', e => {
+    const t = e.target, c = C();
+    if (t.dataset.rel === 'lien') { c.rel[Number(t.dataset.i)].lien = t.value; afterChange('rel'); return; }
+    if (t.id === 'phFile') {
+      const f = t.files && t.files[0];
+      t.value = '';
+      if (f) phOpen(f);
+      return;
+    }
+    const key = t.dataset.key;
+    if (key && F[key] && F[key].t === 'number' && t.value !== '') {
+      const n = clamp(Math.round(Number(t.value)), F[key].min, F[key].max);
+      c.v[key] = n; t.value = n;
+      if (key === 'taille') updateTailleHint();
+      afterChange(key);
+    }
+    if (t.id === 'impFile' && t.files[0]) {
+      t.files[0].text().then(txt => { $('#impText').value = txt; $('#impMsg').textContent = ''; });
+    }
+  });
+  // cadrage de l'image : glisser avec la souris ou le doigt, molette pour zoomer, flèches du clavier
+  let drag = null;
+  document.addEventListener('pointerdown', e => {
+    const f = e.target.closest && e.target.closest('#phView.editing');
+    if (!f) return;
+    drag = { x: e.clientX, y: e.clientY, fx: ui.ph.fx, fy: ui.ph.fy, w: f.getBoundingClientRect().width };
+    try { f.setPointerCapture(e.pointerId); } catch (err) { /* sans suite */ }
+    e.preventDefault();
+  });
+  document.addEventListener('pointermove', e => {
+    if (!drag) return;
+    ui.ph.fx = drag.fx + (e.clientX - drag.x) / drag.w;
+    ui.ph.fy = drag.fy + (e.clientY - drag.y) / drag.w;
+    phLayout();
+  });
+  ['pointerup', 'pointercancel'].forEach(n => document.addEventListener(n, () => { drag = null; }));
+  document.addEventListener('wheel', e => {
+    const f = e.target.closest && e.target.closest('#phView.editing');
+    if (!f) return;
+    e.preventDefault();
+    ui.ph.zoom = clamp(ui.ph.zoom - Math.sign(e.deltaY) * 0.08, 1, 3);
+    const z = $('#phZoom'); if (z) z.value = ui.ph.zoom;
+    phLayout();
+  }, { passive: false });
+  window.addEventListener('resize', phLayout);
+  // un fichier déposé hors du cadre ne doit pas faire quitter la page
+  const hasFiles = e => e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0;
+  document.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+  document.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    const zone = e.target.closest && e.target.closest('[data-drop]'), f = e.dataTransfer.files[0];
+    if (zone && f) phOpen(f);
+  });
+
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (t.id === 'phView' && t.classList.contains('editing')) {
+      const step = 0.02, k = e.key;
+      if (k === 'ArrowLeft') ui.ph.fx -= step; else if (k === 'ArrowRight') ui.ph.fx += step;
+      else if (k === 'ArrowUp') ui.ph.fy -= step; else if (k === 'ArrowDown') ui.ph.fy += step;
+      else if (k === '+' || k === '=') ui.ph.zoom = clamp(ui.ph.zoom + 0.1, 1, 3);
+      else if (k === '-') ui.ph.zoom = clamp(ui.ph.zoom - 0.1, 1, 3);
+      else return;
+      e.preventDefault();
+      const z = $('#phZoom'); if (z) z.value = ui.ph.zoom;
+      phLayout();
+      return;
+    }
+    if (e.key === 'Enter' && t.matches && t.matches('.chip-in')) {
+      e.preventDefault();
+      const key = t.dataset.key, v = t.value;
+      addCustom(key, v);
+    }
+    if (e.key === 'Escape' && document.body.classList.contains('show-preview')) document.body.classList.remove('show-preview');
+  });
+  window.addEventListener('hashchange', checkHash);
+  window.addEventListener('beforeunload', () => { clearTimeout(saveTimer); if (storageOK) saveNow(); });
+
+  async function checkHash() {
+    const m = location.hash.match(/^#p=(.+)$/);
+    if (!m) return;
+    try { ui.shared = clean(await decodeShare(m[1])); renderBanner(); }
+    catch (e) { toast('Le lien de partage est illisible.'); }
+  }
+
+  /* ---------- démarrage ---------- */
+  function init() {
+    try { localStorage.setItem(KEY + '.t', '1'); localStorage.removeItem(KEY + '.t'); } catch (e) { storageOK = false; }
+    if (storageOK) loadStore();
+    if (!store.order.length) {
+      const c = blank();
+      genKeys(c, ORDER);
+      c.example = true;
+      addChar(c);
+      if (storageOK) saveNow();
+    }
+    renderAll();
+    setStatus(storageOK ? 'saved' : 'nostore');
+    checkHash();
+  }
+  init();
+})();
