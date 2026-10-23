@@ -129,9 +129,9 @@
   const F = {
     prenom: { t: 'text', label: 'Prénom', ph: 'Emily', max: 40, w: 'half', gen: c => { const p = pool(c), f = form(c); return f === 'f' ? pick(p.f) : f === 'm' ? pick(p.m) : (Math.random() < 0.6 ? pick(D.NEUTRES) : pick(p.f.concat(p.m))); } },
     nom: { t: 'text', label: 'Nom', ph: 'Carter', max: 40, w: 'half', gen: c => pick(pool(c).noms) },
-    surnom: { t: 'text', label: 'Surnom', ph: 'Em', max: 30, w: 'half', hint: 'Facultatif.' },
+    surnom: { t: 'text', label: 'Surnom', ph: 'Em', max: 30, w: 'half' },
     age: { t: 'number', label: 'Âge', min: 14, max: 100, unit: 'ans', w: 'half', gen: () => { const r = Math.random(); return r < 0.25 ? rint(18, 25) : r < 0.7 ? rint(26, 40) : r < 0.92 ? rint(41, 60) : rint(61, 82); } },
-    genre: { t: 'chips', label: 'Genre', opts: D.GENRES, gen: () => pick(D.GENRES) },
+    genre: { t: 'chips', label: 'Genre', opts: D.GENRES, w: 'half', gen: () => pick(D.GENRES) },
     origine: { t: 'chips', label: 'Origines', opts: D.ORIGINES.map(o => o.label), custom: true, gen: () => wpick(D.ORIGINES.map(o => [o.label, o.poids || 1])) },
     ville: { t: 'text', label: 'Ville', ph: 'Austin, TX', list: 'villes', max: 50, w: 'half', gen: () => pick(D.VILLES) },
     metier: {
@@ -183,9 +183,9 @@
     loisirs: { t: 'multi', label: 'Loisirs et passions', opts: D.LOISIRS, max: 5, custom: true, gen: () => pickN(D.LOISIRS, rint(2, 4)) },
     motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(pick(D.MOTIVATIONS), c) },
     manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => pickN(D.MANIES, 2).map(s => fill(s, c)).join(' ') },
-    secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait.', hint: 'Il apparaît dans la fiche exportée : pense à le retirer avant de partager.', gen: c => fill(pick(D.SECRETS), c) },
+    secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(pick(D.SECRETS), c) },
 
-    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', hint: 'Les textes tirés au sort reprennent le prénom et la ville du moment : relance-les si tu les changes ensuite.', gen: c => fill(pick(D.ENFANCES), c) },
+    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', gen: c => fill(pick(D.ENFANCES), c) },
     parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => fill(pick(D.PARCOURS), c) },
     evenement: { t: 'chips', label: 'Événement marquant', opts: D.EVENEMENTS, custom: true, gen: () => pick(D.EVENEMENTS) },
     actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => fill(pick(D.ACTUELS), c) },
@@ -206,14 +206,27 @@
   };
   const LOOK_KEYS = ['av_coupe', 'av_cheveux', 'av_yeux', 'av_peau', 'av_pilo', 'av_lunettes', 'av_taches'];
 
+  // groups : blocs de champs. more : champs facultatifs repliés. bare : le bloc dessine déjà sa propre carte.
   const STEPS = [
-    { id: 'identite', short: 'Identité', title: 'Identité', color: '--l1', lede: 'Qui est ce personnage dans sa vie de tous les jours ?', fields: ['prenom', 'nom', 'surnom', 'age', 'genre', 'origine', 'ville', 'metier', 'situation', 'logement'] },
-    { id: 'apparence', short: 'Apparence', title: 'Apparence', color: '--l2', lede: 'Ce que les autres voient en le croisant dans la rue.', fields: ['taille', 'corpulence', 'photo', 'look', 'style', 'signes', 'attitude'] },
-    { id: 'personnalite', short: 'Personnalité', title: 'Personnalité', color: '--l3', lede: 'Ce qui le rend unique, ce qui le pousse à agir, ce qu\'il garde pour lui.', fields: ['traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret'] },
-    { id: 'histoire', short: 'Histoire', title: 'Histoire', color: '--l4', lede: 'D\'où il vient et où il en est aujourd\'hui.', fields: ['enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'notes'] },
-    { id: 'relations', short: 'Relations', title: 'Relations', color: '--l5', lede: 'Les personnes qui comptent déjà dans sa vie.', fields: ['rel'] },
-    { id: 'fiche', short: 'Fiche', title: 'Fiche', color: '--l6', lede: 'Relis, copie, partage.', fields: [] }
+    { id: 'identite', short: 'Identité', title: 'Identité', color: '--l1', lede: 'Qui est ce personnage ?', groups: [
+      { title: 'Qui est-ce ?', keys: ['prenom', 'nom', 'age', 'genre', 'origine'] },
+      { title: 'Au quotidien', keys: ['ville', 'metier'] },
+      { more: true, keys: ['surnom', 'situation', 'logement'] }] },
+    { id: 'apparence', short: 'Apparence', title: 'Apparence', color: '--l2', lede: 'Son allure et son image.', groups: [
+      { keys: ['photo'], bare: true },
+      { title: 'Gabarit', keys: ['taille', 'corpulence'] },
+      { keys: ['look'], bare: true },
+      { more: true, keys: ['style', 'signes', 'attitude'] }] },
+    { id: 'personnalite', short: 'Personnalité', title: 'Personnalité', color: '--l3', lede: 'Son caractère et ce qui le pousse à agir.', groups: [
+      { title: 'Caractère', keys: ['traits', 'qualites', 'defauts', 'motivation'] },
+      { more: true, keys: ['peurs', 'loisirs', 'manies', 'secret'] }] },
+    { id: 'histoire', short: 'Histoire', title: 'Histoire', color: '--l4', lede: 'D\'où il vient et où il en est.', groups: [
+      { title: 'Son parcours', keys: ['enfance', 'parcours', 'actuel'] },
+      { more: true, keys: ['evenement', 'accroches', 'notes'] }] },
+    { id: 'relations', short: 'Relations', title: 'Relations', color: '--l5', lede: 'Les personnes qui comptent pour lui.', groups: [{ keys: ['rel'] }] },
+    { id: 'fiche', short: 'Fiche', title: 'Fiche', color: '--l6', lede: 'Relis, copie, partage.', groups: [] }
   ];
+  STEPS.forEach(st => { st.fields = st.groups.reduce((acc, g) => acc.concat(g.keys), []); });
   const ORDER = ['genre', 'origine', 'prenom', 'nom', 'age', 'ville', 'metier', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel'];
 
   const optsOf = d => d.opts.map(o => (typeof o === 'string' ? { v: o } : o));
@@ -254,7 +267,7 @@
   let store = { cur: null, order: [], chars: {} };
   let storageOK = true;
   // ph : image en cours de cadrage (élément image, taille, zoom, décalage) pour le personnage cid
-  const ui = { step: 0, shared: null, armed: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
+  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
   const C = () => store.chars[store.cur];
 
   function loadStore() {
@@ -282,7 +295,7 @@
   function setStatus(s) {
     const el = $('#status');
     if (!el) return;
-    el.textContent = s === 'saving' ? 'Enregistrement…' : s === 'nostore' ? 'Stockage du navigateur indisponible : exporte ta fiche pour la garder.' : 'Enregistré sur cet appareil';
+    el.textContent = s === 'saving' ? 'Enregistrement…' : s === 'nostore' ? 'Stockage du navigateur indisponible : exporte ta fiche pour la garder.' : '✓ Enregistré';
     el.dataset.state = s;
   }
   function addChar(c) { store.chars[c.id] = c; store.order.unshift(c.id); store.cur = c.id; ui.step = 0; }
@@ -364,12 +377,7 @@
         if (rows.length) body += sec(g.title, `<dl class="idc-rows">${rows.map(r => `<div><dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd></div>`).join('')}</dl>`);
       });
     } else {
-      const story = v.enfance || v.parcours || v.actuel || '';
       body += sec('Traits', chips(v.traits || []));
-      body += sec('Allure', `<p>${esc(allure(c))}</p>`);
-      body += sec('Histoire', story ? `<p>${esc(story.length > 190 ? story.slice(0, 190).replace(/\s+\S*$/, '') + '…' : story)}</p>` : '<p class="ph">À compléter</p>');
-      const rel = c.rel.filter(r => r.nom);
-      body += sec('Relations', rel.length ? `<ul class="idc-rel">${rel.slice(0, 3).map(r => `<li><b>${esc(r.nom)}</b>${r.lien ? ' <span>' + esc(r.lien) + '</span>' : ''}</li>`).join('')}${rel.length > 3 ? `<li class="ph">+ ${rel.length - 3} autre${rel.length > 4 ? 's' : ''}</li>` : ''}</ul>` : '<p class="ph">À compléter</p>');
     }
     return `<article class="idcard${full ? ' full' : ''}">
 <div class="idc-stripe" aria-hidden="true">${LINE_COLORS.map(k => `<i style="background:var(${k})"></i>`).join('')}</div>
@@ -382,7 +390,7 @@
 </div></div>
 ${body}
 ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act="goto" data-i="5">Voir la fiche complète</button></div>'}
-<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n', '<br>')}</footer>
+${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n', '<br>')}</footer>` : ''}
 </article>`;
   }
 
@@ -404,14 +412,13 @@ ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act
     const has = !!c.photo.src, ed = phEditing(c);
     const ctl = ed
       ? `<div class="field"><div class="field-head"><label class="lbl" for="phZoom">Zoom</label></div><input type="range" id="phZoom" min="1" max="3" step="0.01" value="${ui.ph.zoom}"></div>
-<p class="hint">Fais glisser l'image dans le cadre pour la placer, ou utilise les flèches du clavier. Le cadre correspond au portrait de la fiche.</p>
+<p class="hint">Glisse l'image pour la placer, zoome avec le curseur.</p>
 <div class="btnrow"><button type="button" class="btn primary" data-act="phUse">Utiliser cette image</button><button type="button" class="btn" data-act="phCancel">Annuler</button></div>`
-      : `<p class="hint">Mets l'image que tu veux : une photo, une image générée ailleurs avec une IA (Midjourney, ChatGPT, Designer...) ou un dessin. Elle est recadrée au format du portrait. Sans image, la fiche affiche une silhouette.</p>
+      : `${has ? '' : '<p class="hint">Une photo, une image faite avec une IA ou un dessin. Sans image, la fiche affiche une silhouette.</p>'}
 <div class="btnrow"><button type="button" class="btn primary" data-act="phPick">${ICON.up} ${has ? 'Changer l\'image' : 'Choisir une image'}</button>${has ? `<button type="button" class="btn" data-act="phClear">${ICON.trash} Retirer l'image</button>` : ''}</div>`;
-    return `<div class="field full photo-block" data-field="photo"><div class="field-head"><span class="lbl" id="l-photo">Image du personnage</span></div>
+    return `<div class="field full group photo-block" data-field="photo"><div class="field-head"><span class="lbl group-title" id="l-photo">Image du personnage</span></div>
 <div class="photo-grid"><div class="photo-view${ed ? ' editing' : ''}" id="phView" data-drop${ed ? ' tabindex="0" aria-label="Cadre du portrait : fais glisser l\'image"' : ''}>${phViewHTML(c)}</div>
 <div class="photo-ctl">${ctl}<p class="ph-msg" id="phMsg" role="status" aria-live="polite" data-state="${ui.ph.status}">${esc(ui.ph.msg)}</p>
-<p class="hint">Ton image reste dans ton navigateur : elle n'est envoyée nulle part. Elle figure dans l'export .json, pas dans le lien de partage.</p>
 <input type="file" id="phFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden></div></div></div>`;
   }
   // place l'image dans le cadre selon le zoom et le décalage choisis
@@ -440,14 +447,14 @@ ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act
     });
   }
 
-  const tailleHint = v => (v ? 'Soit ' + imp(v) + ' en pieds et pouces.' : 'En centimètres. La conversion en pieds et pouces s\'affiche ici.');
-  function updateTailleHint() { const h = $('#h-taille'); if (h) h.textContent = tailleHint(C().v.taille); }
+  function updateTailleHint() { const u = $('#u-taille'), t = C().v.taille; if (u) u.textContent = t ? 'cm · ' + imp(t) : 'cm'; }
 
+  const CHIP_LIMIT = 12;
   function fieldHTML(key, c) {
     const d = F[key], f = form(c), v = c.v[key], locked = !!c.locks[key];
     if (d.t === 'photo') return photoHTML(c);
     if (d.t === 'look') {
-      return `<div class="field full look-block" data-field="look"><div class="field-head"><span class="lbl" id="l-look">Traits physiques</span>${toolsHTML('look', 'Traits physiques', locked)}</div>
+      return `<div class="field full group look-block" data-field="look"><div class="field-head"><span class="lbl group-title" id="l-look">Traits physiques</span>${toolsHTML('look', 'Traits physiques', locked)}</div>
 <div class="look-grid">${LOOK_KEYS.map(k => fieldHTML(k, c)).join('')}</div></div>`;
     }
     const count = d.t === 'multi' ? ` <small>${(v || []).length}/${d.max}</small>` : '';
@@ -457,13 +464,15 @@ ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act
     if (d.t === 'text') {
       ctl = `<input class="in" id="f-${key}" data-key="${key}" type="text" value="${esc(disp(v, f))}" placeholder="${esc(d.ph || '')}" maxlength="${d.max || 80}" autocomplete="off"${d.list ? ` list="dl-${d.list}"` : ''}>`;
     } else if (d.t === 'number') {
-      ctl = `<div class="num"><input class="in" id="f-${key}" data-key="${key}" type="number" inputmode="numeric" min="${d.min}" max="${d.max}" value="${v == null ? '' : esc(v)}"><span class="unit">${d.unit}</span></div>`;
+      ctl = `<div class="num${key === 'taille' ? ' long' : ''}"><input class="in" id="f-${key}" data-key="${key}" type="number" inputmode="numeric" min="${d.min}" max="${d.max}" value="${v == null ? '' : esc(v)}"><span class="unit"${key === 'taille' ? ' id="u-taille"' : ''}>${key === 'taille' && v ? d.unit + ' · ' + imp(v) : d.unit}</span></div>`;
     } else if (d.t === 'area') {
       ctl = `<textarea class="in" id="f-${key}" data-key="${key}" rows="${d.rows || 3}" placeholder="${esc(d.ph || '')}" maxlength="4000">${esc(v || '')}</textarea>`;
     } else if (d.t === 'chips' || d.t === 'multi') {
       const opts = optsOf(d), multi = d.t === 'multi', sel = multi ? (v || []) : (v ? [v] : []);
-      let chips = opts.map(o => chipBtn(key, o.v, o.l != null ? o.l : disp(o.v, f), sel.indexOf(o.v) >= 0)).join('');
+      const open = !!ui.exp[key], shown = open || opts.length <= CHIP_LIMIT ? opts : opts.filter((o, i) => i < CHIP_LIMIT || sel.indexOf(o.v) >= 0);
+      let chips = shown.map(o => chipBtn(key, o.v, o.l != null ? o.l : disp(o.v, f), sel.indexOf(o.v) >= 0)).join('');
       chips += sel.filter(x => !opts.some(o => o.v === x)).map(x => chipBtn(key, x, disp(x, f), true)).join('');
+      if (opts.length > CHIP_LIMIT && (open || shown.length < opts.length)) chips += `<button type="button" class="chip more-chip" data-act="expand" data-key="${key}">${open ? 'Réduire' : '+ ' + (opts.length - shown.length) + ' autres'}</button>`;
       if (d.custom) chips += `<input class="chip-in" type="text" data-custom="1" data-key="${key}" placeholder="+ Autre" maxlength="40" aria-label="Ajouter une valeur : ${esc(d.label)}">`;
       ctl = `<div class="chips" role="group" aria-labelledby="l-${key}">${chips}</div>`;
     } else if (d.t === 'swatch') {
@@ -481,8 +490,7 @@ ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act
     }
     const tools = d.gen ? toolsHTML(key, d.label, locked) : '';
     const wide = d.t === 'rel' || d.t === 'chips' && d.w !== 'half' || d.t === 'multi' || d.t === 'swatch' || d.t === 'area';
-    const hint = key === 'taille' ? tailleHint(v) : d.hint;
-    return `<div class="field${wide ? ' full' : ''}" data-field="${key}"><div class="field-head">${label}${tools}</div>${ctl}${hint ? `<p class="hint"${key === 'taille' ? ' id="h-taille"' : ''}>${esc(hint)}</p>` : ''}</div>`;
+    return `<div class="field${wide ? ' full' : ''}" data-field="${key}"><div class="field-head">${label}${tools}</div>${ctl}</div>`;
   }
 
   /* ---------- assistance de Claude (demande à copier) ---------- */
@@ -514,26 +522,43 @@ ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act
     const local = location.protocol === 'file:';
     return `<div class="fiche"><div class="fiche-card">${cardHTML(c, true)}</div>
 <div class="fiche-side">
-<div class="box"><h3>Copier la fiche</h3><p class="hint">Mise en forme prête à coller dans Discord, un forum ou un document.</p>
+<div class="box"><h3>Copier la fiche</h3>
 <div class="btnrow"><button type="button" class="btn primary" data-act="copyMd">${ICON.copy} Pour Discord</button><button type="button" class="btn" data-act="copyTxt">${ICON.copy} Texte brut</button></div></div>
 <div class="box"><h3>Garder et partager</h3>
 <div class="btnrow"><button type="button" class="btn" data-act="copyLink">${ICON.link} Lien de partage</button><button type="button" class="btn" data-act="dlJson">${ICON.down} Fichier .json</button>${c.photo.src ? `<button type="button" class="btn" data-act="dlPortrait">${ICON.down} Image (.jpg)</button>` : ''}</div>
-<p class="hint">Le lien contient toute la fiche et n'utilise aucun serveur : la personne qui l'ouvre peut l'ajouter à ses personnages.${local ? ' Il ne fonctionnera qu\'une fois le site publié.' : ''}</p></div>
+<p class="hint">Le lien contient toute la fiche, sans serveur.${local ? ' Il ne marchera qu\'une fois le site publié.' : ''}</p></div>
 <div class="box"><h3>Ajouter un personnage</h3><div class="btnrow"><button type="button" class="btn" data-act="openImport">${ICON.up} Importer une fiche</button><button type="button" class="btn" data-act="newBlank">${ICON.plus} Fiche vierge</button></div></div>
 </div></div>`;
   }
+  const hasValue = (c, k) => {
+    const d = F[k];
+    if (d.t === 'rel') return c.rel.length > 0;
+    if (d.t === 'photo') return !!c.photo.src;
+    const v = c.v[k];
+    return Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== '';
+  };
+  function groupHTML(g, c, s) {
+    const inner = g.keys.map(k => fieldHTML(k, c)).join('');
+    if (g.more) {
+      const n = g.keys.filter(k => hasValue(c, k)).length;
+      return `<details class="more" data-more="${s.id}"${ui.more[s.id] ? ' open' : ''}><summary><span>Plus de détails</span><small>${n ? n + ' sur ' + g.keys.length + ' remplis' : 'facultatif'}</small></summary><div class="fields">${inner}</div></details>`;
+    }
+    if (g.bare) return inner;
+    return `<section class="group">${g.title ? `<h3 class="group-title">${g.title}</h3>` : ''}<div class="fields">${inner}</div></section>`;
+  }
   function panelHTML() {
-    const i = ui.step, s = STEPS[i], c = C();
-    const head = `<header class="step-head"><p class="kicker">Étape ${i + 1} sur ${STEPS.length}</p><h2 tabindex="-1">${s.title}</h2><p class="lede">${s.lede}</p>` +
-      (s.fields.length ? `<div class="step-tools"><button type="button" class="btn" data-act="genStep">${ICON.die} Tirer cette étape au sort</button><span class="hint">Les champs verrouillés restent tels quels.</span></div>` : '') + '</header>';
+    const i = ui.step, s = STEPS[i], c = C(), last = STEPS.length - 1;
+    const head = `<header class="step-head"><div class="step-title"><h2 tabindex="-1">${s.title}</h2>${s.fields.length ? `<button type="button" class="btn ghost small" data-act="genStep" title="Remplir cette étape au hasard">${ICON.die} Au hasard</button>` : ''}</div><p class="lede">${s.lede}</p></header>`;
     let body;
     if (s.id === 'fiche') body = ficheHTML(c);
     else {
-      body = `<div class="fields">${s.fields.map(k => fieldHTML(k, c)).join('')}</div>`;
+      body = `<div class="groups">${s.groups.map(g => groupHTML(g, c, s)).join('')}</div>`;
       if (s.id === 'identite') body += `<datalist id="dl-villes">${D.VILLES.map(x => `<option value="${esc(x)}">`).join('')}</datalist><datalist id="dl-metiers">${D.METIERS.map(x => `<option value="${esc(disp(x, form(c)))}">`).join('')}</datalist>`;
       if (s.id === 'histoire') body += claudeHTML();
     }
-    const foot = `<footer class="step-foot">${i > 0 ? `<button type="button" class="btn" data-act="prev">${ICON.left} ${STEPS[i - 1].short}</button>` : '<span></span>'}${i < STEPS.length - 1 ? `<button type="button" class="btn primary" data-act="next">${STEPS[i + 1].short} ${ICON.right}</button>` : ''}</footer>`;
+    const foot = `<footer class="step-foot">${i > 0 ? `<button type="button" class="btn" data-act="prev">${ICON.left}<span>${STEPS[i - 1].short}</span></button>` : '<span></span>'}` +
+      (i < last ? `<button type="button" class="btn ghost only-mobile" data-act="openPreview">${ICON.card}<span>Aperçu</span></button>` : '') +
+      (i < last ? `<button type="button" class="btn primary" data-act="next"><span>${STEPS[i + 1].short}</span>${ICON.right}</button>` : '<span></span>') + '</footer>';
     return `<section class="step" data-step="${s.id}" style="--accent:var(${s.color})">${head}${body}${foot}</section>`;
   }
   function renderPanel() {
@@ -798,6 +823,7 @@ ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act
       case 'dlPortrait':
         if (c.photo.src) fetch(c.photo.src).then(r => r.blob()).then(b => saveFile(slug(sheet(c).name) + '-portrait.jpg', b, 'image/jpeg'));
         break;
+      case 'expand': ui.exp[key] = !ui.exp[key]; refreshField(key); break;
       case 'phPick': { const f = $('#phFile'); if (f) f.click(); break; }
       case 'phUse':
         if (phEditing(c)) {
@@ -893,6 +919,7 @@ ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act
     if (zone && f) phOpen(f);
   });
 
+  document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.more) ui.more[d.dataset.more] = d.open; }, true);
   document.addEventListener('keydown', e => {
     const t = e.target;
     if (t.id === 'phView' && t.classList.contains('editing')) {
