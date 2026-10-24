@@ -417,6 +417,7 @@
     if (c.v.origine && D.legacyOrigin(c.v.origine)) { c.v.herit = c.v.origine; c.v.origine = D.NATIONS[0].v; }
     ensureHerit(c);
     // les champs qui viennent de la description de départ (le reste a été complété au hasard)
+    c.summaryAI = str(raw && raw.summaryAI, 400).replace(/\s+/g, ' ').trim();
     c.described = Array.isArray(raw && raw.described) ? raw.described.filter(k => typeof k === 'string' && k in F).slice(0, 40) : [];
     const rb = raw && raw.bg;
     if (rb && typeof rb === 'object') {
@@ -510,12 +511,12 @@
       groups
     };
   }
-  function toText(c, md, withDraft) {
+  function toText(c, md, withDraft, noSummary) {
     const s = sheet(c, withDraft), out = [];
     const title = s.name || 'Personnage sans nom';
     out.push(md ? '**' + title + '**' : title.toUpperCase());
     if (s.sub) out.push(md ? '*' + s.sub + '*' : s.sub);
-    const sm = summary(c).text;
+    const sm = noSummary ? '' : summary(c).text;
     if (sm) out.push('', sm);
     s.groups.forEach(g => {
       out.push('', md ? '**' + g.title + '**' : '— ' + g.title.toUpperCase() + ' —');
@@ -547,7 +548,9 @@
   };
   const joinList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1] : a[0] || '');
   // { text, tags } : un paragraphe, et trois repères (atout, faille, peur) à lire d'un coup d'œil
-  function summary(c) {
+  function summary(c, auto) {
+    // une phrase écrite par une IA (collée par la personne) remplace le résumé automatique
+    if (c.summaryAI && !auto) return { text: c.summaryAI, tags: [], ai: true };
     const v = c.v, f = form(c), il = f === 'f' ? 'elle' : 'il', d = k => disp(v[k], f);
     const name = d('prenom'), job = lc(d('metier'));
     if (!name && !job && !v.age) return { text: '', tags: [] };
@@ -610,10 +613,18 @@
     const bgBlock = m.bg.length ? `<details class="idc-bg"><summary><span>Background</span><small>${m.bg.length} partie${m.bg.length > 1 ? 's' : ''} · ${chars} caractères</small></summary><div class="idc-bgbody">${m.bg.map(p => `<div class="sc-txt"><h5>${esc(p[0])}</h5>${String(p[1]).split(/\n+/).filter(Boolean).map(t => `<p>${esc(t)}</p>`).join('')}</div>`).join('')}</div></details>` : '';
     return `<div class="sc-all">${body || '<p class="ph" style="padding:22px">À compléter</p>'}</div>${bgBlock}`;
   }
+  // la demande à copier dans une IA : la fiche, et une seule phrase en retour
+  const aiSummaryPrompt = c => 'Voici la fiche d\'un personnage de jeu de rôle. Écris UNE SEULE phrase (35 mots maximum) qui résume ce personnage : qui il est, ce qui le définit, ce qu\'il veut. Utilise uniquement des informations présentes dans la fiche, n\'invente rien et évite les clichés. Réponds par la phrase seule, sans guillemets ni titre.\n\nFiche :\n' + toText(c, false, true, true);
   function summaryHTML(c) {
     const s = summary(c);
     if (!s.text) return '';
-    return `<section class="resume" aria-label="Résumé du personnage"><span class="resume-k">En bref</span><p>${esc(s.text)}</p>${s.tags.length ? `<ul class="resume-tags">${s.tags.map(t => `<li class="tone-${t.tone}"><b>${esc(t.k)}</b>${esc(t.v)}</li>`).join('')}</ul>` : ''}</section>`;
+    const ai = `<details class="resume-ai"><summary>${ICON.spark}<span>${s.ai ? 'Changer le résumé écrit par une IA' : 'Faire écrire ce résumé par une IA'}</span></summary>
+<div class="resume-ai-body"><p class="hint">Copie la demande, colle-la dans l'IA de ton choix, puis colle ici sa réponse. La fiche, l'image PNG et le PDF utilisent ensuite cette phrase.</p>
+<textarea class="in img-text" id="aiPrompt" rows="5" readonly aria-label="Demande à copier dans l'IA">${esc(aiSummaryPrompt(c))}</textarea>
+<div class="btnrow"><button type="button" class="btn primary" data-act="aiSumCopy">${ICON.copy} Copier la demande</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a><a class="btn" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a></div>
+<textarea class="in" id="aiReply" rows="3" maxlength="400" placeholder="Colle ici la phrase écrite par l'IA" aria-label="Réponse de l'IA"></textarea>
+<div class="btnrow"><button type="button" class="btn" data-act="aiSumUse">Utiliser cette phrase</button>${c.summaryAI ? '<button type="button" class="btn ghost" data-act="aiSumClear">Revenir au résumé automatique</button>' : ''}</div></div></details>`;
+    return `<section class="resume" aria-label="Résumé du personnage"><span class="resume-k">En bref${s.ai ? ' · écrit par une IA' : ''}</span><p>${esc(s.text)}</p>${s.tags.length ? `<ul class="resume-tags">${s.tags.map(t => `<li class="tone-${t.tone}"><b>${esc(t.k)}</b>${esc(t.v)}</li>`).join('')}</ul>` : ''}${ai}</section>`;
   }
   function cardHTML(c, full) {
     const s = sheet(c), v = c.v, f = form(c);
@@ -1248,6 +1259,13 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       case 'copyLink': encodeShare(c).then(p => copyText(location.href.split('#')[0] + '#p=' + p, 'Lien de partage copié.')); break;
       case 'imgOpt': ui.img[b.dataset.k] = b.dataset.v; refreshField('imgprompt'); break;
       case 'imgCopy': copyText($('#imgPrompt').value, 'Texte copié : colle-le dans ton IA.'); break;
+      case 'aiSumCopy': copyText($('#aiPrompt').value, 'Demande copiée : colle-la dans ton IA.'); break;
+      case 'aiSumUse': {
+        const t = ($('#aiReply').value || '').replace(/^["«\s]+|["»\s]+$/g, '').replace(/\s+/g, ' ').trim();
+        if (!t) { toast('Colle d\'abord la phrase écrite par l\'IA.'); break; }
+        c.summaryAI = t.slice(0, 400); c.updated = Date.now(); renderPanel(); scheduleSave(); toast('Résumé remplacé par celui de l\'IA.'); break;
+      }
+      case 'aiSumClear': c.summaryAI = ''; c.updated = Date.now(); renderPanel(); scheduleSave(); toast('Résumé automatique rétabli.'); break;
       case 'dlPng': exportSheet(c, 'png', b); break;
       case 'dlPdf': exportSheet(c, 'pdf', b); break;
       case 'dlPortrait':

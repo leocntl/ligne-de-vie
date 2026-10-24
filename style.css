@@ -678,3 +678,10 @@ body[data-view="bg"] [data-only]:not([data-only~="bg"]) { display: none !importa
 .img-lbl { font: 500 11px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .img-text { font: 400 13px/1.65 var(--f-mono); min-height: 150px; resize: vertical; }
 @media (max-width: 560px) { .img-row { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+
+/* ---------- résumé écrit par une IA (demande à copier, réponse à coller) ---------- */
+.resume-ai { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 10px; }
+.resume-ai summary { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; font: 600 13px/1.2 var(--f-display); color: color-mix(in srgb, var(--l1) 75%, var(--ink)); }
+.resume-ai summary::-webkit-details-marker { display: none; }
+.resume-ai-body { display: grid; gap: 12px; margin-top: 12px; }
+.resume-ai-body .hint { margin: 0; }
