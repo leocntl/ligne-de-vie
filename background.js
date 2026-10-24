@@ -402,7 +402,9 @@ window.LDV_BG = (function () {
     parcours: { title: 'Parcours', make: (x, used) => {
       const parts = [];
       if (x.parcoursTxt) {
-        parts.push(x.parcoursTxt, choose(B.parcE, x, used));
+        // le statut (retraité, étudiant, sans emploi) reste dit, même quand le parcours vient de la fiche
+        const status = B.parcB.filter(e => e[1].some(k => ['retraite', 'etudiant', 'chomage'].indexOf(k) >= 0));
+        parts.push(x.parcoursTxt, choose(status, x, used), choose(B.parcE, x, used));
         if (Math.random() < 0.5) parts.push(choose(B.parcC, x, used));
         parts.push(choose(B.parcD, x, used));
         return parts;
@@ -419,7 +421,8 @@ window.LDV_BG = (function () {
       if (Math.random() < 0.85) parts.push(choose(EVT_AFTER, x, used));
       return parts;
     } },
-    aujourdhui: { title: "Aujourd'hui", make: (x, used) => [choose(B.ajdA, x, used), x.actuelTxt, choose(B.ajdB, x, used), choose(B.ajdC, x, used), choose(B.ajdD, x, used)] },
+    // quand « Aujourd'hui » est écrit dans la fiche, on ne redit pas où et comment le personnage vit
+    aujourdhui: { title: "Aujourd'hui", make: (x, used) => [choose(x.actuelTxt ? B.ajdA.filter(e => !/\{(?:logement|ville|lieuV)\}/.test(e[0])) : B.ajdA, x, used), x.actuelTxt, choose(B.ajdB, x, used), choose(B.ajdC, x, used), choose(B.ajdD, x, used)] },
     secret: { title: 'Le secret', make: (x, used) => [x.secret ? fill('Il y a une chose {qu_n} ne raconte jamais. ', x) + x.secret : fill(pick(x.gta ? SECRET_GENERIC.concat(SECRET_GTA) : SECRET_GENERIC), x)] }
   };
   const PLANS = { court: ['origines', 'parcours', 'aujourdhui'], moyen: ['origines', 'jeunesse', 'parcours', 'tournant', 'aujourdhui'], long: ['origines', 'jeunesse', 'parcours', 'tournant', 'aujourdhui', 'secret'] };

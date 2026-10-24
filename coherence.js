@@ -100,7 +100,7 @@ window.LDV_COH = (function () {
   function candidates(key, c, generic, gta) {
     const p = profile(c, gta), seen = new Set(), items = [];
     const add = (t, w, own) => { const k = norm(t); if (seen.has(k)) return; seen.add(k); if (veto(t, p, key) || gated(t, p)) return; items.push({ t, w, own }); };
-    themed(key, p).forEach(t => add(t, 8, true));
+    themed(key, p).forEach(t => add(t, key === 'motivation' ? 14 : 8, true));
     arr(generic).forEach(t => add(t, 1, false));
     if (!items.length) arr(generic).forEach(t => items.push({ t, w: 1, own: false }));
     return { items, p };
