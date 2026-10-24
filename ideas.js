@@ -157,7 +157,7 @@ window.LDV.IDEES = {
     "A trahi, par omission, quelqu'un qui lui faisait entièrement confiance.",
     "Conserve la photo de quelqu'un qui n'est plus censé avoir existé dans sa vie.",
     "A déjà été payé{e} pour garder le silence, et reçoit encore parfois un peu d'argent.",
-    "Se fait passer pour plus gai{e} que {il} ne l'est, depuis si longtemps que {il} ne sait plus faire autrement."
+    "Se fait passer pour plus gai{e} {qu_il} ne l'est, depuis si longtemps {qu_il} ne sait plus faire autrement."
   ],
   secret_gta: [
     "A vu le visage d'un braqueur que la police recherche encore, et n'a rien dit.",
@@ -184,7 +184,7 @@ window.LDV.IDEES = {
   logement: ["Au-dessus d'un bar", "Dans une caravane de cirque reconvertie", "Dans une ancienne station-service", "Dans un entrepôt aménagé", "Dans le grenier d'un oncle", "Sur une péniche", "Sur le canapé d'un ami depuis deux ans", "Dans un appartement sans fenêtres", "Dans l'arrière-boutique d'une quincaillerie"],
   logement_gta: ["Dans un bungalow face à la plage de Vespucci", "Dans une caravane à Sandy Shores", "Dans un ancien salon de coiffure à Strawberry", "Dans un duplex d'Alta, à crédit", "Dans l'arrière-boutique d'un garage de La Mesa", "Dans un studio au-dessus d'un diner de Paleto Bay", "Sur le toit d'un immeuble de Little Seoul, dans un abri aménagé"],
   evenement: ["Une soirée qui a mal tourné", "Un trophée volé", "Une évasion par la fenêtre", "Un coup de téléphone à trois heures du matin", "Un voyage sans retour prévu", "Un procès perdu", "Un voisin devenu ennemi", "Une lettre arrivée vingt ans trop tard", "Une panne en plein désert", "Une disparition inexpliquée", "Un premier prix qui a brisé une amitié"],
-  evenement_gta: ["Une nuit au Pillbox Hill Medical", "Une course-poursuite sur l'autoroute", "Un contrat de film perdu à Vinewood", "Une fusillade évitée de justesse à Davis", "Un tour en hélicoptère qui a tout changé", "Une arrestation un soir de fête à Vespucci", "Un naufrage au large de Del Perro", "Une évasion de Bolingbroke"],
+  evenement_gta: ["Une nuit au Pillbox Hill Medical", "Une course-poursuite sur l'autoroute", "Une fusillade évitée de justesse à Davis", "Un tour en hélicoptère qui a tout changé", "Une arrestation un soir de fête à Vespucci", "Un naufrage au large de Del Perro"],
   affiliation_gta: ["Indic du LSPD", "Réserviste du BCSO", "Syndicat des dockers", "Garde du corps privé", "Sans étiquette : travaille pour qui paie", "Bénévole de l'EMS", "Pigiste pour Weazel News", "Équipe de course clandestine", "Ancien des Vagos", "Ancien des Families", "Milice de voisinage de Sandy Shores", "Paroisse de Davis"],
   metier: ["Réparateur|Réparatrice~ de jukebox", "Dresseur|Dresseuse~ de chiens de garde", "Chauffeur|Chauffeuse~ de limousine pour stars en fin de carrière", "Moniteur|Monitrice~ d'auto-école de nuit", "Restaurateur|Restauratrice~ de flippers", "Ouvreur|Ouvreuse~ dans un cinéma de quartier", "Négociateur|Négociatrice~ de dettes", "Gardien|Gardienne~ de phare", "Accordeur|Accordeuse~ de pianos", "Détective privé|Détective privée", "Livreur|Livreuse~ de fleurs de nuit", "Employé|Employée~ de fourrière", "Coordinateur|Coordinatrice~ de cascades", "Traducteur|Traductrice~ judiciaire", "Apiculteur|Apicultrice", "Vendeur|Vendeuse~ de voitures d'occasion à l'honnêteté douteuse"],
   metier_gta: ["Agent|Agente~ de caution judiciaire", "Photographe de mariage à Vinewood", "Garagiste clandestin|Garagiste clandestine", "Moniteur|Monitrice~ de plongée à Del Perro", "Bartender dans un club de Vespucci", "Chauffeur|Chauffeuse~ de taxi de nuit à Los Santos", "Guide|Guide~ des tournages de Vinewood", "Chasseur|Chasseuse~ de primes", "Pilote d'hélicoptère de tournage", "Vendeur|Vendeuse~ de glaces sur la jetée", "Cascadeur|Cascadeuse~ de seconde zone", "Inspecteur|Inspectrice~ des assurances", "Gérant|Gérante~ d'un motel sur la route 68"],
@@ -243,7 +243,7 @@ window.LDV.IDEES = {
     "{prenom} cherche un nouveau départ à {ville}, mais n'arrive pas à choisir entre partir et rester. {Il} a déjà fait ses valises trois fois.",
     "À {ville}, {prenom} est connu{e} de tous les commerçants et de personne d'autre. Cela lui convient plutôt bien.",
     "{prenom} traverse une période étrange : tout va bien, et c'est justement ce qui l'inquiète.",
-    "Le matin, {prenom} fait semblant d'aller bien. Le soir, {il} y croit presque. Entre les deux, il y a {hobby}.",
+    "Le matin, {prenom} fait semblant d'aller bien. Le soir, {il} y croit presque. Entre les deux : {hobby}.",
     "{prenom} héberge depuis trois semaines un ami « pour quelques jours » {logement}, à {ville}. Personne n'ose aborder le sujet.",
     "{prenom} prépare quelque chose en secret depuis des mois. Ses proches pensent {qu_il} cache une mauvaise nouvelle ; ce n'est pas le cas, mais cela ne les rassurera pas.",
     "Les journées de {prenom} à {ville} se ressemblent, et {il} s'y accroche : c'est la première fois de sa vie que rien ne bouge."
@@ -255,7 +255,7 @@ window.LDV.IDEES = {
     "À {ville}, {prenom} enchaîne les petits boulots pour payer une dette qui ne diminue jamais assez vite.",
     "{prenom} a recueilli un chien errant, l'a appelé « Los Santos » et ne s'en sépare plus. Le chien, lui, ne se sépare plus de la voiture.",
     "Chaque semaine, {prenom} repère une nouvelle voiture que personne n'a remarquée : c'est son passe-temps, et sa façon d'être invisible.",
-    "Tout le monde à {ville} croit que {prenom} réussit. {Il} ne les détrompe pas."
+    "Tout le monde à {ville} croit {qu_prenom} réussit. {Il} ne les détrompe pas."
   ],
   accroches: [
     "A besoin d'un témoin pour un mariage qui n'a pas encore été annoncé.",
@@ -291,13 +291,13 @@ window.LDV.IDEES = {
     "Dans la boîte à gants de {prenom} : un plan froissé, une photo, un chewing-gum et un ticket de loto non vérifié.",
     "Quand on demande à {prenom} ce qu'{il} veut, {il} répond « un peu de calme ». Ce n'est pas tout à fait vrai.",
     "{prenom} a un plat de réconfort, un seul, que personne d'autre ne sait préparer correctement.",
-    "Tout le monde croit que {prenom} déteste le sport. {Il} s'entraîne en secret depuis un an.",
+    "Tout le monde croit {qu_prenom} déteste le sport. {Il} s'entraîne en secret depuis un an.",
     "Citation favorite de {prenom} : « rien n'est jamais perdu tant qu'on peut encore rentrer à pied ».",
     "{prenom} connaît par cœur le numéro de téléphone d'une seule personne, et ce n'est pas celle qu'on croit.",
     "Pour {prenom}, le meilleur jour de la semaine est le mardi : personne n'attend rien de personne.",
     "{prenom} garde toujours dix dollars « pour l'imprévu ». L'imprévu arrive en général avant la fin de la semaine.",
     "{prenom} s'est promis{e} de ne plus jamais refaire une chose, et la refait une fois par an.",
-    "Ce que {prenom} ne dira jamais à voix haute : {il} adore être surpris{e}."
+    "Ce {qu_prenom} ne dira jamais à voix haute : {il} adore être surpris{e}."
   ],
   notes_gta: [
     "{prenom} sait exactement à quelle heure les rues de {ville} se vident, et pourquoi.",
@@ -329,7 +329,7 @@ window.LDV.IDEES = {
     "Travaille de l'autre côté de la loi, ce qu'aucun des deux ne dit à voix haute.",
     "Se voient une fois par mois sur la jetée de Del Perro, sans jamais parler de travail.",
     "Sait où {prenom} se trouvait une certaine nuit, et ne l'a jamais dit.",
-    "Roule dans une voiture que {prenom} a réparée et jamais fait payer."
+    "Roule dans une voiture {qu_prenom} a réparée et jamais fait payer."
   ],
 
   /* ---------- description : pièces pour « Idée au hasard » ---------- */
@@ -384,3 +384,10 @@ window.LDV.IDEES = {
     ["Dessinatrice à Austin", "Une dessinatrice de 28 ans à Austin, cheveux bouclés, rêveuse et sarcastique, serveuse la nuit. Elle veut publier sa bande dessinée"]
   ]
 };
+
+/* ---------- métiers de l'informatique (les autres idées de ce domaine sont dans themes.js) ---------- */
+(function (I) {
+  const add = (k, arr) => { I[k] = (I[k] || []).concat(arr); };
+  add('metier', ["Réparateur|Réparatrice~ de consoles et de téléphones", "Développeur|Développeuse~ de mods pour jeux vidéo", "Chasseur|Chasseuse~ de failles (bug bounty)", "Technicien|Technicienne~ de salle serveurs", "Administrateur|Administratrice~ réseau de nuit", "Créateur|Créatrice~ d'outils pour streamers"]);
+  add('metier_gta', ["Technicien|Technicienne~ informatique au Pillbox Hill Medical", "Développeur|Développeuse~ pour une start-up de Vinewood", "Revendeur|Revendeuse~ de matériel informatique d'occasion", "Hacker|Hackeuse~ à la solde de la pègre"]);
+})(window.LDV.IDEES);

@@ -7,6 +7,7 @@
   const A = D; // choix de traits physiques (peau, cheveux, yeux...), définis dans data.js
   const P = window.LDV_PHOTO;
   const DS = window.LDV_DESCRIBE;
+  const COH = window.LDV_COH;
   const KEY = 'ligne-de-vie.v1';
 
   /* ---------- petits outils ---------- */
@@ -89,11 +90,12 @@
     const first = (v.loisirs || [])[0];
     const map = {
       prenom: disp(v.prenom, f) || 'Le personnage',
+      qu_prenom: (/^[AEIOUYÀÂÉÈÊÎÔÛaeiouyàâéèêîôû]/.test(disp(v.prenom, f)) ? "qu'" : 'que ') + (disp(v.prenom, f) || 'Le personnage'),
       nom: disp(v.nom, f),
       ville: D.cityName(v.ville) || 'sa ville',
       metier: metierTxt(v.metier, f),
       logement: lc(v.logement) || 'dans un petit logement',
-      hobby: lc(first) || 'la musique',
+      hobby: COH.np(disp(first, f)) || 'la musique',
       il, Il: cap(il), e: { f: 'e', m: '' }[f],
       qu_il: { f: "qu'elle", m: "qu'il" }[f],
       s_il: { f: 'si elle', m: "s'il" }[f]
@@ -171,6 +173,10 @@
   /* ---------- banque d'idées originales ---------- */
   // les listes de ideas.js : des idées neutres, plus celles propres à l'univers GTA (clé_gta)
   const ipool = key => ((D.IDEES && D.IDEES[key]) || []).concat(W() === 'gta' && D.IDEES ? D.IDEES[key + '_gta'] || [] : []);
+  // choix cohérents avec la fiche (âge, métier, goûts, origine) : voir coherence.js
+  const cpick = (key, c, base, n) => COH.pick(key, c, base, n, W() === 'gta');
+  const cone = (key, c, base) => cpick(key, c, base, 1)[0] || pick(base.length ? base : ['']);
+  const cwords = (key, c, base, n) => COH.words(key, c, base, n, W() === 'gta');
   // champs libres qui proposent des idées, et nombre d'idées montrées
   const IDEA_FIELDS = { surnom: 6, metier: 5, affiliation: 6, signes: 4, attitude: 4, motivation: 4, manies: 4, secret: 3, enfance: 3, parcours: 3, actuel: 3, accroches: 4, notes: 4, traits: 6, qualites: 6, defauts: 6, peurs: 6, loisirs: 6, style: 6, logement: 5, evenement: 5 };
   const hasIdeas = key => key in IDEA_FIELDS && !!D.IDEES;
@@ -191,13 +197,14 @@
     if (v.taille > 188) mine.push('Tiny'); else if (v.taille && v.taille < 162) mine.push('Shorty');
     return { mine: Array.from(new Set(mine)), pool: ipool('surnom') };
   }
+  // les idées d'un champ : celles de l'univers du personnage d'abord (poids fort), puis les générales, sans ce qui contredit la fiche
   function ideaPoolFor(key, c) {
     const d = F[key], ville = c.v.ville || '';
-    if (d.t === 'area') return ipool(key).map(t => (key === 'accroches' ? '• ' : '') + fill(t, c));
-    // les idées liées à un lieu ou à un métier local ne vont qu'aux personnages concernés
-    if (key === 'metier') return ipool(key).filter(j => D.jobFits(j, ville));
-    if (key === 'logement' || key === 'affiliation' || key === 'loisirs' || key === 'evenement' || key === 'style') return ipool(key).filter(x => D.placeFits(x, ville));
-    return ipool(key);
+    // les métiers liés à un lieu ne vont qu'aux personnages qui y vivent
+    if (key === 'metier') return ipool(key).filter(j => D.jobFits(j, ville)).map(t => ({ t, w: 1 }));
+    const items = COH.candidates(key, c, ipool(key), W() === 'gta').items;
+    if (d.t === 'area') return items.map(x => ({ t: (key === 'accroches' ? '• ' : '') + fill(x.t, c), w: x.w, own: x.own }));
+    return items;
   }
   // tire n idées neuves : celles déjà présentes dans le champ et celles déjà montrées sont écartées tant qu'il en reste
   function makeIdeas(key, c, avoid) {
@@ -209,9 +216,13 @@
       const nk = nicknameIdeas(c), mine = pickN(nk.mine.filter(x => !has(x) && avoid.indexOf(x) < 0), 3);
       items = mine.concat(pickN(fresh(nk.pool).filter(x => mine.indexOf(x) < 0), n - mine.length));
     } else {
-      const all = ideaPoolFor(key, c).filter(x => !has(x)), unseen = all.filter(x => avoid.indexOf(x) < 0);
+      const all = ideaPoolFor(key, c).filter(x => !has(x.t)), unseen = all.filter(x => avoid.indexOf(x.t) < 0);
+      const first = !avoid.length;
       if (unseen.length < n) avoid.length = 0;
-      items = pickN(unseen.length >= n ? unseen : all, n);
+      const pool = unseen.length >= n ? unseen : all;
+      // à l'ouverture, deux idées de l'univers du personnage passent devant (informatique, police, atelier...)
+      const own = first ? pool.filter(x => x.own) : [], lead = COH.pickWeighted(own, Math.min(2, own.length));
+      items = lead.concat(COH.pickWeighted(pool.filter(x => lead.indexOf(x) < 0), n - lead.length)).map(x => x.t);
     }
     items.forEach(x => avoid.push(x));
     return { items, avoid };
@@ -290,15 +301,16 @@
       t: 'chips', label: 'Logement', opts: logementList, custom: true,
       gen: c => {
         const a = c.v.age || 30;
-        if (a < 22) return pick(['Chez ses parents', 'En résidence universitaire', 'En colocation', 'Dans un studio']);
-        const young = a < 30;
-        return pick(logementList().filter(l => l !== 'En résidence universitaire' && (young ? Math.random() < 0.25 || l !== 'Chez ses parents' : l !== 'Chez ses parents')));
+        const list = a < 22 ? ['Chez ses parents', 'En résidence universitaire', 'En colocation', 'Dans un studio']
+          : logementList().filter(l => l !== 'En résidence universitaire' && (a < 30 ? Math.random() < 0.25 || l !== 'Chez ses parents' : l !== 'Chez ses parents'));
+        return cwords('logement', c, list, 1)[0] || pick(list);
       }
     },
 
     taille: { t: 'number', label: 'Taille', min: 100, max: 230, unit: 'cm', w: 'half', gen: c => clamp(Math.round({ f: 164, m: 177, x: 170 }[form(c)] + (Math.random() + Math.random() + Math.random() - 1.5) * 14), 148, 200) },
     corpulence: { t: 'chips', label: 'Corpulence', opts: D.CORPULENCES, custom: true, w: 'half', gen: () => wpick([['Mince', 3], ['Athlétique', 2], ['Moyenne', 4], ['Robuste', 2], ['Ronde', 2]]) },
     photo: { t: 'photo', label: 'Image du personnage' },
+    imgprompt: { t: 'imgprompt', label: 'Image par IA' },
     look: { t: 'look', label: 'Traits physiques', gen: genLook },
     av_coupe: { t: 'chips', label: 'Coupe de cheveux', opts: A.COUPES },
     av_cheveux: { t: 'swatch', label: 'Couleur des cheveux', pal: A.CHEVEUX },
@@ -307,25 +319,25 @@
     av_pilo: { t: 'chips', label: 'Pilosité', opts: A.PILOSITE },
     av_lunettes: { t: 'chips', label: 'Lunettes', opts: A.LUNETTES },
     av_taches: { t: 'chips', label: 'Taches de rousseur', opts: A.TACHES },
-    style: { t: 'multi', label: 'Style vestimentaire', opts: D.STYLES, max: 6, custom: true, gen: () => pickN(D.STYLES, rint(1, 3)) },
-    signes: { t: 'area', label: 'Signes distinctifs', rows: 2, ph: 'Cicatrice, tatouage, piercing, détail qu\'on remarque…', gen: (c, bulk) => (!bulk || Math.random() < 0.65 ? fill(pick(D.SIGNES.concat(ipool('signes'))), c) : '') },
-    attitude: { t: 'area', label: 'Voix et attitude', rows: 2, ph: 'Comment il ou elle parle, se tient, occupe l\'espace…', gen: c => fill(pick(D.ATTITUDES.concat(ipool('attitude'))), c) },
+    style: { t: 'multi', label: 'Style vestimentaire', opts: D.STYLES, max: 6, custom: true, gen: c => cwords('style', c, D.STYLES.concat(ipool('style')), rint(1, 3)) },
+    signes: { t: 'area', label: 'Signes distinctifs', rows: 2, ph: 'Cicatrice, tatouage, piercing, détail qu\'on remarque…', gen: (c, bulk) => (!bulk || Math.random() < 0.65 ? fill(cone('signes', c, D.SIGNES.concat(ipool('signes'))), c) : '') },
+    attitude: { t: 'area', label: 'Voix et attitude', rows: 2, ph: 'Comment il ou elle parle, se tient, occupe l\'espace…', gen: c => fill(cone('attitude', c, D.ATTITUDES.concat(ipool('attitude'))), c) },
 
-    traits: { t: 'multi', label: 'Traits de caractère', opts: D.TRAITS, max: 6, custom: true, gen: () => pickN(D.TRAITS, rint(3, 5)) },
-    qualites: { t: 'multi', label: 'Qualités', opts: D.QUALITES, max: 6, custom: true, gen: () => pickN(D.QUALITES, rint(2, 4)) },
-    defauts: { t: 'multi', label: 'Défauts', opts: D.DEFAUTS, max: 6, custom: true, gen: () => pickN(D.DEFAUTS, rint(2, 4)) },
-    peurs: { t: 'multi', label: 'Peurs', opts: D.PEURS, max: 6, custom: true, gen: () => pickN(D.PEURS, rint(1, 3)) },
-    loisirs: { t: 'multi', label: 'Loisirs et passions', opts: loisirList, max: 6, custom: true, gen: () => pickN(loisirList(), rint(2, 5)) },
-    motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(pick(D.MOTIVATIONS.concat(ipool('motivation'))), c) },
-    manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => pickN(D.MANIES.concat(ipool('manies')), 2).map(s => fill(s, c)).join(' ') },
-    secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(pick(D.SECRETS.concat(ipool('secret'))), c) },
+    traits: { t: 'multi', label: 'Traits de caractère', opts: D.TRAITS, max: 6, custom: true, gen: c => cwords('traits', c, D.TRAITS.concat(ipool('traits')), rint(3, 5)) },
+    qualites: { t: 'multi', label: 'Qualités', opts: D.QUALITES, max: 6, custom: true, gen: c => cwords('qualites', c, D.QUALITES.concat(ipool('qualites')), rint(2, 4)) },
+    defauts: { t: 'multi', label: 'Défauts', opts: D.DEFAUTS, max: 6, custom: true, gen: c => cwords('defauts', c, D.DEFAUTS.concat(ipool('defauts')), rint(2, 4)) },
+    peurs: { t: 'multi', label: 'Peurs', opts: D.PEURS, max: 6, custom: true, gen: c => cwords('peurs', c, D.PEURS.concat(ipool('peurs')), rint(1, 3)) },
+    loisirs: { t: 'multi', label: 'Loisirs et passions', opts: loisirList, max: 6, custom: true, gen: c => cwords('loisirs', c, loisirList().concat(ipool('loisirs')), rint(2, 5)) },
+    motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(cone('motivation', c, D.MOTIVATIONS.concat(ipool('motivation'))), c) },
+    manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => cpick('manies', c, D.MANIES.concat(ipool('manies')), 2).map(s => fill(s, c)).join(' ') },
+    secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(cone('secret', c, D.SECRETS.concat(ipool('secret'))), c) },
 
-    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', gen: c => fill(pick(D.ENFANCES.concat(ipool('enfance'))), c) },
-    parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => fill(pick(D.PARCOURS.concat(ipool('parcours'))), c) },
-    evenement: { t: 'chips', label: 'Événement marquant', opts: D.EVENEMENTS, custom: true, gen: () => pick(D.EVENEMENTS) },
-    actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => fill(pick(D.ACTUELS.concat(ipool('actuel'))), c) },
-    accroches: { t: 'area', label: 'Accroches de RP', rows: 4, ph: 'Ce qui permet à un autre personnage de l\'aborder ou de l\'entraîner dans son histoire.', gen: c => pickN(D.ACCROCHES.concat(ipool('accroches')), 3).map(s => '• ' + fill(s, c)).join('\n') },
-    notes: { t: 'area', label: 'Notes libres', rows: 3, ph: 'Tout ce qui ne rentre pas ailleurs.', gen: c => fill(pick(ipool('notes')), c) },
+    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', gen: c => fill(cone('enfance', c, D.ENFANCES.concat(ipool('enfance'))), c) },
+    parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => fill(cone('parcours', c, D.PARCOURS.concat(ipool('parcours'))), c) },
+    evenement: { t: 'chips', label: 'Événement marquant', opts: D.EVENEMENTS, custom: true, gen: c => cwords('evenement', c, D.EVENEMENTS.concat(ipool('evenement')), 1)[0] || pick(D.EVENEMENTS) },
+    actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => fill(cone('actuel', c, D.ACTUELS.concat(ipool('actuel'))), c) },
+    accroches: { t: 'area', label: 'Accroches de RP', rows: 4, ph: 'Ce qui permet à un autre personnage de l\'aborder ou de l\'entraîner dans son histoire.', gen: c => cpick('accroches', c, D.ACCROCHES.concat(ipool('accroches')), 3).map(s => '• ' + fill(s, c)).join('\n') },
+    notes: { t: 'area', label: 'Notes libres', rows: 3, ph: 'Tout ce qui ne rentre pas ailleurs.', gen: c => fill(cone('notes', c, ipool('notes')), c) },
 
     rel: {
       t: 'rel', label: 'Relations',
@@ -334,7 +346,7 @@
         return [first].concat(pickN(D.LIENS.filter(l => l !== first), 2)).map(lien => {
           const o = lien === 'Famille' ? pool(c) : pick(D.ORIGINES);
           const nom = lien === 'Famille' && c.v.nom ? disp(c.v.nom, form(c)) : pick(o.noms);
-          return { nom: pick(o.f.concat(o.m)) + ' ' + nom, lien, note: fill(pick(D.NOTES_REL.concat(ipool('relnote'))), c) };
+          return { nom: pick(o.f.concat(o.m)) + ' ' + nom, lien, note: fill(cone('relnote', c, D.NOTES_REL.concat(ipool('relnote'))), c) };
         });
       }
     }
@@ -351,7 +363,8 @@
       { keys: ['photo'], bare: true },
       { title: 'Gabarit', keys: ['taille', 'corpulence'] },
       { keys: ['look'], bare: true },
-      { more: true, keys: ['style', 'signes', 'attitude'] }] },
+      { more: true, keys: ['style', 'signes', 'attitude'] },
+      { keys: ['imgprompt'], bare: true }] },
     { id: 'personnalite', short: 'Personnalité', title: 'Personnalité', color: '--l3', lede: 'Son caractère et ce qui le pousse à agir.', groups: [
       { title: 'Caractère', keys: ['traits', 'qualites', 'defauts', 'motivation'] },
       { more: true, keys: ['peurs', 'loisirs', 'manies', 'secret'] }] },
@@ -417,7 +430,7 @@
   let store = { cur: null, order: [], chars: {}, world: 'gta' };
   let storageOK = true;
   // ph : image en cours de cadrage (élément image, taille, zoom, décalage) pour le personnage cid
-  const ui = { step: 0, shared: null, armed: null, more: {}, exp: {}, ideas: {}, exIdx: null, bgPrev: {}, bgArm: false, descText: '', desc: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
+  const ui = { img: Object.assign({}, window.LDV_IMG.DEFAULTS), step: 0, shared: null, armed: null, more: {}, exp: {}, ideas: {}, exIdx: null, bgPrev: {}, bgArm: false, descText: '', desc: null, ph: { img: null, url: '', w: 0, h: 0, zoom: 1, fx: 0, fy: 0, cid: null, status: 'idle', msg: '' } };
   const C = () => store.chars[store.cur];
 
   function loadStore() {
@@ -473,7 +486,9 @@
     if (lun && lun.v !== 'non') parts.push('lunettes ' + lun.l.toLowerCase());
     return cap(parts.join(', '));
   }
-  function sheet(c) {
+  // la description de départ (écrite à la création) reste dans les notes, mais n'apparaît pas sur la fiche partagée
+  const pubNotes = (v, withDraft) => (!withDraft && /^Description de départ\s*:/.test(String(v.notes || '')) ? '' : v.notes);
+  function sheet(c, withDraft) {
     const v = c.v, f = form(c), d = k => disp(v[k], f), L = k => (v[k] || []).map(x => disp(x, f)).join(', ');
     const groups = [];
     const add = (title, rows) => { rows = rows.filter(r => r[1]); if (rows.length) groups.push({ title, rows }); };
@@ -483,7 +498,7 @@
     ]);
     add('Apparence', [['Allure', allure(c)], ['Style', L('style')], ['Signes distinctifs', v.signes], ['Voix et attitude', v.attitude]]);
     add('Personnalité', [['Traits', L('traits')], ['Qualités', L('qualites')], ['Défauts', L('defauts')], ['Peurs', L('peurs')], ['Loisirs', L('loisirs')], ['Motivation', v.motivation], ['Manies', v.manies], ['Secret', v.secret]]);
-    add('Histoire', [['Enfance', v.enfance], ['Parcours', v.parcours], ['Événement marquant', d('evenement')], ['Aujourd\'hui', v.actuel], ['Accroches de RP', v.accroches], ['Notes', v.notes]]);
+    add('Histoire', [['Enfance', v.enfance], ['Parcours', v.parcours], ['Événement marquant', d('evenement')], ['Aujourd\'hui', v.actuel], ['Accroches de RP', v.accroches], ['Notes', pubNotes(v, withDraft)]]);
     add('Relations', c.rel.filter(r => r.nom || r.note).map(r => [(r.nom || '?') + (r.lien ? ' (' + r.lien + ')' : ''), r.note || '–']));
     add('Background', bgParts(c));
     return {
@@ -493,11 +508,13 @@
       groups
     };
   }
-  function toText(c, md) {
-    const s = sheet(c), out = [];
+  function toText(c, md, withDraft) {
+    const s = sheet(c, withDraft), out = [];
     const title = s.name || 'Personnage sans nom';
     out.push(md ? '**' + title + '**' : title.toUpperCase());
     if (s.sub) out.push(md ? '*' + s.sub + '*' : s.sub);
+    const sm = summary(c).text;
+    if (sm) out.push('', sm);
     s.groups.forEach(g => {
       out.push('', md ? '**' + g.title + '**' : '— ' + g.title.toUpperCase() + ' —');
       g.rows.forEach(r => {
@@ -517,37 +534,88 @@
     return l1 + '\n' + l2;
   }
   const LINE_COLORS = ['--l1', '--l2', '--l3', '--l4', '--l5', '--l6'];
-  // la fiche complète : l'essentiel en bandeau, puis deux colonnes (le personnage, son histoire).
-  // Les textes longs sont repliés sur quelques lignes, avec « Lire la suite ».
-  function fullBodyHTML(c) {
+  /* ---------- résumé : de quoi cerner le personnage en quelques lignes ---------- */
+  const oneSentence = (t, max) => {
+    t = String(t || '').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    const m = /^.*?[.!?](?=\s|$)/.exec(t);
+    let s = m ? m[0] : t;
+    if (s.length > max) { const cut = s.lastIndexOf(', ', max - 20); s = (cut > 40 ? s.slice(0, cut) : s.slice(0, max).replace(/\s+\S*$/, '')) + '.'; }
+    return s.replace(/[.\s]*$/, '.');
+  };
+  const joinList = a => (a.length > 1 ? a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1] : a[0] || '');
+  // { text, tags } : un paragraphe, et trois repères (atout, faille, peur) à lire d'un coup d'œil
+  function summary(c) {
+    const v = c.v, f = form(c), il = f === 'f' ? 'elle' : 'il', d = k => disp(v[k], f);
+    const name = d('prenom'), job = lc(d('metier'));
+    if (!name && !job && !v.age) return { text: '', tags: [] };
+    const oi = D.originInfo(v.origine), org = d('origine');
+    const origin = !org ? '' : oi.kind === 'city' ? ', originaire de ' + org : oi.kind === 'nation' && !/^Américain/.test(v.origine) ? ", d'origine " + lc(disp(v.origine, 'f')) : oi.kind === 'other' ? ", d'origine " + lc(org) : '';
+    const cityShort = D.cityName ? D.cityName(v.ville) : v.ville;
+    const where = v.ville && !(job && job.indexOf(cityShort) >= 0) ? ' à ' + v.ville : '';
+    const s1 = [(name || 'Ce personnage') + (v.surnom ? ' « ' + v.surnom + ' »' : ''), v.age ? v.age + ' ans' : '', job].filter(Boolean).join(', ') + where + origin + '.';
+    const past = oneSentence(v.enfance || v.parcours, 150);
+    const traits = (v.traits || []).slice(0, 3).map(x => lc(disp(x, f)));
+    let drive = '';
+    const mo = String(v.motivation || '').replace(/\s+/g, ' ').trim().replace(/[.\s]*$/, '');
+    if (mo) drive = /^(?:se |s')|^[A-ZÉÈÀ][a-zéèêîôûàç]+(?:er|ir|re|oir)(?=\s|$)/.test(mo) && !/^(?:rêve|veut|cherche|espère|souhaite|vit|reste|garde|part)\b/i.test(mo) ? 'veut ' + lc(mo) : lc(mo);
+    let s3 = '';
+    if (traits.length && drive) s3 = cap(joinList(traits)) + ', ' + il + ' ' + drive + '.';
+    else if (traits.length) s3 = cap(il) + ' est ' + joinList(traits) + '.';
+    else if (drive) s3 = cap(il) + ' ' + drive + '.';
+    const tag = (k, tone, arr) => (arr && arr[0] ? { k, tone, v: disp(arr[0], f) } : null);
+    return { text: [s1, past, s3].filter(Boolean).join(' '), tags: [tag('Atout', 'qualite', v.qualites), tag('Faille', 'defaut', v.defauts), tag('Peur', 'peur', v.peurs)].filter(Boolean) };
+  }
+
+  /* ---------- la fiche, découpée en sections lisibles ---------- */
+  // un seul modèle sert à l'écran, à l'image (PNG) et au PDF
+  function sheetModel(c) {
     const v = c.v, f = form(c), d = k => disp(v[k], f), L = k => (v[k] || []).map(x => disp(x, f));
-    const stat = (k, val) => (val ? `<div><dt>${k}</dt><dd>${esc(val)}</dd></div>` : '');
-    const facts = stat('Âge', v.age ? v.age + ' ans' : '') + stat('Genre', v.genre) + stat('Origines', d('origine')) + stat('Ville', v.ville) + stat('Métier', d('metier')) +
-      stat('Affiliation', v.affiliation) + stat('Situation', d('situation')) + stat('Logement', v.logement);
-    const grp = (label, arr) => (arr.length ? `<div class="idc-grp"><span>${label}</span><ul class="idc-chips">${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
+    const text = (label, t) => (t && String(t).trim() ? { t: 'text', label, text: String(t).trim() } : null);
+    const chips = (label, tone, items) => (items.length ? { t: 'chips', label, tone, items } : null);
+    const cards = items => { items = items.filter(Boolean); return items.length ? { t: 'cards', items: items.map(x => ({ label: x.label, text: x.text })) } : null; };
+    const acc = (v.accroches || '').split('\n').map(l => l.replace(/^[•\-\s]+/, '').trim()).filter(Boolean);
+    const rels = c.rel.filter(r => r.nom || r.note).map(r => ({ nom: r.nom || '?', lien: r.lien || '', note: r.note || '' }));
+    const fact = (k, val) => (val ? [k, String(val)] : null);
+    const sections = [
+      { id: 'identite', title: 'Identité', color: '--l1', blocks: [{ t: 'facts', items: [fact('Âge', v.age ? v.age + ' ans' : ''), fact('Genre', v.genre), fact('Origines', d('origine')), fact('Ville', v.ville), fact('Métier', d('metier')), fact('Affiliation', v.affiliation), fact('Situation', d('situation')), fact('Logement', v.logement)].filter(Boolean) }] },
+      { id: 'apparence', title: 'Apparence', color: '--l2', blocks: [text('Allure', allure(c)), chips('Style', 'style', L('style')), text('Signes distinctifs', v.signes), text('Voix et attitude', v.attitude)] },
+      { id: 'personnalite', title: 'Personnalité', color: '--l3', blocks: [chips('Traits', 'trait', L('traits')), chips('Qualités', 'qualite', L('qualites')), chips('Défauts', 'defaut', L('defauts')), chips('Peurs', 'peur', L('peurs')), chips('Loisirs', 'loisir', L('loisirs')),
+        cards([v.motivation && { label: 'Motivation', text: v.motivation }, v.manies && { label: 'Manies', text: v.manies }, v.secret && { label: 'Secret', text: v.secret }])] },
+      { id: 'histoire', title: 'Histoire', color: '--l4', timeline: true, blocks: [text('Enfance', v.enfance), text('Parcours', v.parcours), v.evenement ? chips('Événement marquant', 'event', [d('evenement')]) : null, text("Aujourd'hui", v.actuel)] },
+      { id: 'relations', title: 'Relations et accroches', color: '--l5', blocks: [rels.length ? { t: 'rels', items: rels } : null, acc.length ? { t: 'list', label: 'Accroches de RP', items: acc } : null] },
+      { id: 'notes', title: 'Notes', color: '--l6', blocks: [text('Notes libres', pubNotes(v))] }
+    ];
+    sections.forEach(s => { s.blocks = s.blocks.filter(Boolean); });
+    return { sections: sections.filter(s => s.blocks.length), bg: bgParts(c) };
+  }
+
+  const TONE_LABEL = { trait: 'Traits', qualite: 'Qualités', defaut: 'Défauts', peur: 'Peurs' };
+  function blockHTML(b) {
     const fold = t => {
-      const paras = String(t).split(/\n+/).map(p => p.trim()).filter(Boolean), long = paras.join(' ').length > 300;
+      const paras = String(t).split(/\n+/).map(p => p.trim()).filter(Boolean), long = paras.join(' ').length > 420;
       return `<div class="fold${long ? ' clamp' : ''}">${paras.map(p => `<p>${esc(p)}</p>`).join('')}</div>${long ? '<button type="button" class="link small-link" data-act="fold">Lire la suite</button>' : ''}`;
     };
-    const txt = (label, t) => (t && String(t).trim() ? `<div class="idc-txt"><h5>${label}</h5>${fold(t)}</div>` : '');
-    const rels = c.rel.filter(r => r.nom || r.note);
-    const acc = (v.accroches || '').split('\n').map(l => l.replace(/^[•\-\s]+/, '').trim()).filter(Boolean);
-    const bg = bgParts(c);
-    const left = [
-      txt('Allure', allure(c)), grp('Style', L('style')), txt('Signes distinctifs', v.signes), txt('Voix et attitude', v.attitude),
-      grp('Traits', L('traits')), grp('Qualités', L('qualites')), grp('Défauts', L('defauts')), grp('Peurs', L('peurs')), grp('Loisirs', L('loisirs')),
-      txt('Motivation', v.motivation), txt('Manies', v.manies), txt('Secret', v.secret)
-    ].join('');
-    const right = [
-      txt('Enfance', v.enfance), txt('Parcours', v.parcours), v.evenement ? grp('Événement marquant', [d('evenement')]) : '', txt("Aujourd'hui", v.actuel),
-      acc.length ? `<div class="idc-txt"><h5>Accroches de RP</h5><ul class="idc-list">${acc.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '',
-      rels.length ? `<div class="idc-txt"><h5>Relations</h5><ul class="idc-rel2">${rels.map(r => `<li><b>${esc(r.nom || '?')}</b>${r.lien ? ` <span>${esc(r.lien)}</span>` : ''}${r.note ? `<em>${esc(r.note)}</em>` : ''}</li>`).join('')}</ul></div>` : '',
-      txt('Notes', v.notes)
-    ].join('');
-    const chars = bg.reduce((n, p) => n + p[1].length, 0);
-    const bgBlock = bg.length ? `<details class="idc-bg"><summary><span>Background</span><small>${bg.length} partie${bg.length > 1 ? 's' : ''} · ${chars} caractères</small></summary><div class="idc-bgbody">${bg.map(p => `<div class="idc-txt"><h5>${p[0]}</h5>${String(p[1]).split(/\n+/).filter(Boolean).map(t => `<p>${esc(t)}</p>`).join('')}</div>`).join('')}</div></details>` : '';
-    return `<dl class="idc-facts">${facts}</dl><div class="idc-body"><div class="idc-col"><h4 class="idc-coltitle">Le personnage</h4>${left || '<p class="ph">À compléter</p>'}</div>` +
-      `<div class="idc-col"><h4 class="idc-coltitle">Son histoire<button type="button" class="link small-link" data-act="foldAll">Tout déplier</button></h4>${right || '<p class="ph">À compléter</p>'}</div></div>${bgBlock}`;
+    if (b.t === 'facts') return `<dl class="sc-facts">${b.items.map(x => `<div><dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd></div>`).join('')}</dl>`;
+    if (b.t === 'text') return `<div class="sc-txt"><h5>${esc(b.label)}</h5>${fold(b.text)}</div>`;
+    if (b.t === 'chips') return `<div class="sc-chips tone-${b.tone}"><h5>${esc(b.label)}</h5><ul>${b.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+    if (b.t === 'cards') return `<div class="sc-cards">${b.items.map(x => `<div class="sc-card"><h5>${esc(x.label)}</h5>${fold(x.text)}</div>`).join('')}</div>`;
+    if (b.t === 'list') return `<div class="sc-txt"><h5>${esc(b.label)}</h5><ul class="sc-list">${b.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+    if (b.t === 'rels') return `<div class="sc-rels">${b.items.map(r => `<div class="sc-rel"><span class="sc-av" aria-hidden="true">${esc((r.nom.match(/[\p{L}]/u) || ['?'])[0].toUpperCase())}</span><div><b>${esc(r.nom)}</b>${r.lien ? `<small>${esc(r.lien)}</small>` : ''}${r.note ? `<p>${esc(r.note)}</p>` : ''}</div></div>`).join('')}</div>`;
+    return '';
+  }
+  // la fiche complète : des sections numérotées, chacune avec sa couleur
+  function fullBodyHTML(c) {
+    const m = sheetModel(c);
+    const body = m.sections.map((s, i) => `<section class="sc${s.timeline ? ' timeline' : ''}" style="--sc:var(${s.color})"><header class="sc-head"><span class="sc-n">${String(i + 1).padStart(2, '0')}</span><h4>${esc(s.title)}</h4></header><div class="sc-body">${s.blocks.map(blockHTML).join('')}</div></section>`).join('');
+    const chars = m.bg.reduce((n, p) => n + p[1].length, 0);
+    const bgBlock = m.bg.length ? `<details class="idc-bg"><summary><span>Background</span><small>${m.bg.length} partie${m.bg.length > 1 ? 's' : ''} · ${chars} caractères</small></summary><div class="idc-bgbody">${m.bg.map(p => `<div class="sc-txt"><h5>${esc(p[0])}</h5>${String(p[1]).split(/\n+/).filter(Boolean).map(t => `<p>${esc(t)}</p>`).join('')}</div>`).join('')}</div></details>` : '';
+    return `<div class="sc-all">${body || '<p class="ph" style="padding:22px">À compléter</p>'}</div>${bgBlock}`;
+  }
+  function summaryHTML(c) {
+    const s = summary(c);
+    if (!s.text) return '';
+    return `<section class="resume" aria-label="Résumé du personnage"><span class="resume-k">En bref</span><p>${esc(s.text)}</p>${s.tags.length ? `<ul class="resume-tags">${s.tags.map(t => `<li class="tone-${t.tone}"><b>${esc(t.k)}</b>${esc(t.v)}</li>`).join('')}</ul>` : ''}</section>`;
   }
   function cardHTML(c, full) {
     const s = sheet(c), v = c.v, f = form(c);
@@ -634,12 +702,25 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     });
   }
 
+  /* ---------- texte pour une IA qui génère des images ---------- */
+  function imgPromptHTML(c) {
+    const IM = window.LDV_IMG, o = ui.img;
+    const row = (k, label) => `<div class="img-row"><span class="img-lbl">${label}</span><div class="chips" role="group" aria-label="${label}">${IM.OPT[k].map(x => `<button type="button" class="chip" data-act="imgOpt" data-k="${k}" data-v="${x[0]}" aria-pressed="${o[k] === x[0]}">${x[1]}</button>`).join('')}</div></div>`;
+    return `<div class="field full group imgprompt" data-field="imgprompt"><div class="field-head"><span class="lbl group-title">Créer l'image avec une IA</span></div>
+<p class="hint">Le texte ci-dessous décrit ton personnage d'après sa fiche. Copie-le dans une IA qui génère des images, puis ajoute l'image obtenue dans « Image du personnage ». Rien n'est envoyé depuis ce site.</p>
+<div class="img-opts">${row('style', 'Rendu')}${row('frame', 'Cadrage')}${row('scene', 'Décor')}${row('lang', 'Langue')}</div>
+<textarea class="in img-text" id="imgPrompt" rows="7" readonly aria-label="Texte à copier dans l'IA">${esc(IM.build(c, o, W() === 'gta'))}</textarea>
+<div class="btnrow"><button type="button" class="btn primary" data-act="imgCopy">${ICON.copy} Copier le texte</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a><a class="btn" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a><a class="btn" href="https://copilot.microsoft.com/" target="_blank" rel="noopener">Copilot</a></div></div>`;
+  }
+  const syncImgPrompt = () => { const ta = $('#imgPrompt'); if (ta) ta.value = window.LDV_IMG.build(C(), ui.img, W() === 'gta'); };
+
   function updateTailleHint() { const u = $('#u-taille'), t = C().v.taille; if (u) u.textContent = t ? 'cm · ' + imp(t) : 'cm'; }
 
   const CHIP_LIMIT = 12;
   function fieldHTML(key, c) {
     const d = F[key], f = form(c), v = c.v[key], locked = !!c.locks[key];
     if (d.t === 'photo') return photoHTML(c);
+    if (d.t === 'imgprompt') return imgPromptHTML(c);
     if (d.t === 'look') {
       return `<div class="field full group look-block" data-field="look"><div class="field-head"><span class="lbl group-title" id="l-look">Traits physiques</span>${toolsHTML('look', 'Traits physiques', locked)}</div>
 <div class="look-grid">${LOOK_KEYS.map(k => fieldHTML(k, c)).join('')}</div></div>`;
@@ -704,20 +785,20 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     ? 'contemporain et réaliste, sans surnaturel, qui se déroule dans l\'univers de GTA (San Andreas : Los Santos, Blaine County, ou bien Vice City ou Liberty City). Les lieux, les services (LSPD, BCSO, EMS, LSFD) et les gangs doivent rester cohérents avec cet univers.'
     : 'contemporain et réaliste, sans surnaturel, qui se déroule aux États-Unis.');
   function buildPrompt(c, task) {
-    return 'Je crée un personnage pour un jeu de rôle (RP) ' + worldLine() + ' Voici sa fiche actuelle :\n\n' + toText(c, false) +
+    return 'Je crée un personnage pour un jeu de rôle (RP) ' + worldLine() + ' Voici sa fiche actuelle :\n\n' + toText(c, false, true) +
       '\n\nDemande : ' + TASKS[task] + '\n\nRéponds en français, avec un ton naturel et sans titres superflus, de façon à ce que je puisse copier ton texte tel quel dans ma fiche.';
   }
 
   /* ---------- rendu général ---------- */
   function ficheHTML(c) {
     const local = location.protocol === 'file:';
-    return `<div class="fiche"><div class="fiche-card">${cardHTML(c, true)}</div>
+    return `<div class="fiche"><div class="fiche-main">${summaryHTML(c)}<div class="fiche-card">${cardHTML(c, true)}</div></div>
 <div class="fiche-side">
-<div class="box"><h3>Copier la fiche</h3>
-<div class="btnrow"><button type="button" class="btn primary" data-act="copyMd">${ICON.copy} Pour Discord</button><button type="button" class="btn" data-act="copyTxt">${ICON.copy} Texte brut</button></div></div>
+<div class="box"><h3>Exporter la fiche</h3>
+<div class="btnrow"><button type="button" class="btn primary" data-act="dlPng">${ICON.down} <span>Télécharger en PNG</span></button><button type="button" class="btn" data-act="copyTxt">${ICON.copy} Texte brut</button></div></div>
 <div class="box"><h3>Garder et partager</h3>
-<div class="btnrow"><button type="button" class="btn" data-act="copyLink">${ICON.link} Lien de partage</button><button type="button" class="btn" data-act="dlJson">${ICON.down} Fichier .json</button>${c.photo.src ? `<button type="button" class="btn" data-act="dlPortrait">${ICON.down} Image (.jpg)</button>` : ''}</div>
-<p class="hint">Le lien contient toute la fiche, sans serveur.${local ? ' Il ne marchera qu\'une fois le site publié.' : ''}</p></div>
+<div class="btnrow"><button type="button" class="btn" data-act="copyLink">${ICON.link} Lien de partage</button><button type="button" class="btn" data-act="dlPdf">${ICON.down} <span>Télécharger en PDF</span></button>${c.photo.src ? `<button type="button" class="btn" data-act="dlPortrait">${ICON.down} Portrait (.jpg)</button>` : ''}</div>
+<p class="hint">Le lien contient toute la fiche, sans serveur.${local ? " Il ne marchera qu'une fois le site publié." : ''}</p></div>
 <div class="box"><h3>Background</h3><p class="hint">Rédige l'histoire de ce personnage à partir de sa fiche.</p><div class="btnrow"><a class="btn" href="#background">${ICON.card} Rédiger son background</a></div></div>
 <div class="box"><h3>Ajouter un personnage</h3><div class="btnrow"><button type="button" class="btn" data-act="openImport">${ICON.up} Importer une fiche</button><button type="button" class="btn" data-act="newBlank">${ICON.plus} Fiche vierge</button></div></div>
 </div></div>`;
@@ -820,6 +901,12 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     Object.keys(r.v).forEach(k => { if (F[k] && F[k].gen && k.indexOf('av_') !== 0) n.locks[k] = true; });
     if (n.rel.length) n.locks.rel = true;
     genKeys(n, ORDER);
+    // proches cités sans nom (« son père », « sa mère ») : on leur donne un nom de la famille
+    n.rel.forEach(x => {
+      if (x.nom) return;
+      const pl = pool(n), male = x.role === 'pere' || x.role === 'frere' || x.role === 'grand-pere' || x.role === 'fils';
+      x.nom = pick(male ? pl.m : pl.f) + ' ' + (n.v.nom ? disp(n.v.nom, form(n)) : pick(pl.noms));
+    });
     // une description sans gang ne fait entrer personne dans un gang : seule l'affiliation du métier (police, secours) est reprise
     if (W() === 'gta' && !r.v.affiliation) {
       const hit = n.v.metier && !/^(?:Étudiant|Alternant|Retrait)/.test(disp(n.v.metier, 'm')) && D.AFFIL_DE_METIER.find(x => x[0].test(disp(n.v.metier, 'm')));
@@ -927,7 +1014,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     $$('[data-field]').forEach(w => { if (w.isConnected) refreshField(w.dataset.field); });
   }
   function afterChange(key) {
-    renderPreview(); renderTop(); scheduleSave();
+    renderPreview(); renderTop(); scheduleSave(); syncImgPrompt();
   }
   function changed(key) {
     const c = C();
@@ -983,6 +1070,19 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     a.href = URL.createObjectURL(new Blob([text], { type }));
     a.download = name; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+  // la fiche en image (PNG) ou en PDF, dessinée dans le navigateur
+  async function exportSheet(c, kind, btn) {
+    const lab = btn && $('span', btn), old = lab ? lab.textContent : '';
+    if (btn) { btn.disabled = true; if (lab) lab.textContent = 'Création…'; }
+    try {
+      const s = sheet(c), m = sheetModel(c), sm = summary(c);
+      const model = { first: s.first, last: s.last, nick: s.nick, sub: s.sub, summary: sm.text, tags: sm.tags, portrait: c.photo.src || '', sections: m.sections, bg: m.bg };
+      const blob = await (kind === 'pdf' ? window.LDV_EXPORT.pdf(model) : window.LDV_EXPORT.png(model));
+      saveFile(slug(s.name) + '.' + kind, blob, kind === 'pdf' ? 'application/pdf' : 'image/png');
+      toast(kind === 'pdf' ? 'PDF téléchargé.' : 'Image téléchargée.');
+    } catch (e) { toast('Création impossible' + (e && e.message ? ' : ' + e.message : '.')); }
+    if (btn) { btn.disabled = false; if (lab) lab.textContent = old; }
   }
   const b64u = bytes => {
     let s = '';
@@ -1146,13 +1246,12 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       }
       case 'shareAdd': { ui.shared.id = newId(); addChar(ui.shared); ui.shared = null; history.replaceState(null, '', location.pathname + location.search + '#creation'); renderAll(); scheduleSave(); toast('Personnage ajouté.'); break; }
       case 'shareDismiss': ui.shared = null; history.replaceState(null, '', location.pathname + location.search + '#creation'); renderBanner(); break;
-      case 'copyMd': {
-        const t = toText(c, true);
-        copyText(t, t.length > 2000 ? 'Copié, mais plus de 2000 caractères : Discord demandera de découper le message.' : 'Fiche copiée au format Discord.'); break;
-      }
       case 'copyTxt': copyText(toText(c, false), 'Fiche copiée en texte brut.'); break;
       case 'copyLink': encodeShare(c).then(p => copyText(location.href.split('#')[0] + '#p=' + p, 'Lien de partage copié.')); break;
-      case 'dlJson': saveFile(slug(sheet(c).name) + '.json', JSON.stringify({ app: 'ligne-de-vie', version: 1, character: { v: c.v, rel: c.rel, photo: c.photo, bg: c.bg } }, null, 2), 'application/json'); break;
+      case 'imgOpt': ui.img[b.dataset.k] = b.dataset.v; refreshField('imgprompt'); break;
+      case 'imgCopy': copyText($('#imgPrompt').value, 'Texte copié : colle-le dans ton IA.'); break;
+      case 'dlPng': exportSheet(c, 'png', b); break;
+      case 'dlPdf': exportSheet(c, 'pdf', b); break;
       case 'dlPortrait':
         if (c.photo.src) fetch(c.photo.src).then(r => r.blob()).then(b => saveFile(slug(sheet(c).name) + '-portrait.jpg', b, 'image/jpeg'));
         break;
@@ -1168,7 +1267,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
         if (!r) break;
         if (!r.nom) { const o = pick(D.ORIGINES); r.nom = pick(o.f.concat(o.m)) + ' ' + pick(o.noms); }
         if (!r.lien) r.lien = pick(D.LIENS);
-        r.note = fill(pick(D.NOTES_REL.concat(ipool('relnote'))), c);
+        r.note = fill(cone('relnote', c, D.NOTES_REL.concat(ipool('relnote'))), c);
         changed('rel'); break;
       }
       case 'descRandom': { ui.descText = randomDescription(); const t = $('#descText'); if (t) { t.value = ui.descText; t.focus(); } break; }
@@ -1379,7 +1478,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     candidature: 'Résume le background de ce personnage en un seul paragraphe d\'une dizaine de lignes, adapté à une candidature sur un serveur de jeu de rôle.'
   };
   function buildBgPrompt(c, task) {
-    return 'Je crée un personnage pour un jeu de rôle (RP) ' + worldLine() + ' Voici sa fiche actuelle :\n\n' + toText(c, false) +
+    return 'Je crée un personnage pour un jeu de rôle (RP) ' + worldLine() + ' Voici sa fiche actuelle :\n\n' + toText(c, false, true) +
       '\n\nDemande : ' + BG_TASKS[task] + '\n\nRéponds en français, avec un ton naturel et sans titres superflus, de façon à ce que je puisse copier ton texte tel quel dans ma fiche.';
   }
   function bgMiniHTML(c) {

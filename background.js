@@ -128,22 +128,23 @@ window.LDV_BG = (function () {
       ville: strip(v.ville), naissance, logement: lc(v.logement || ''),
       metier, metierPro: ordinaryJob(disp(v.metier, g)) ? metier : '', etudiant: /^étudiant|^alternant/i.test(disp(v.metier, g)) ? metier : '', retraite: /^retrait/i.test(disp(v.metier, g)) ? metier : '',
       chomage: /sans emploi|reconversion/i.test(v.metier || '') ? metier : '',
-      hobby: v.loisirs && v.loisirs[0] ? lc(disp(v.loisirs[0], g)) : '',
+      hobby: v.loisirs && v.loisirs[0] ? window.LDV_COH.np(disp(v.loisirs[0], g)) : '',
       peur: v.peurs && v.peurs[0] ? lc(disp(v.peurs[0], g)) : '',
       trait: lc(first(v.traits)), qualite: lc(first(v.qualites)), defaut: lc(first(v.defauts)),
       rel: rel ? rel.nom : '', motivation: v.motivation ? cap(v.motivation.trim().replace(/\s+/g, ' ')) : '', secret: v.secret ? cap(v.secret.trim().replace(/\s+/g, ' ')) : '',
       situation: sit && sit !== "c'est compliqué" ? sit : '', compliquee: sit === "c'est compliqué" ? 'oui' : '',
       pere: pick(PERES), mere: pick(MERES), fratrie, unique: sibs === 0 ? 'oui' : '', ecoles: String(pick([2, 3, 4, 5])), agePar: String(pick([6, 8, 9, 11, 12])),
       heritage: oi.kind === 'nation' || oi.kind === 'city' ? '' : HERITAGE[v.herit || v.origine] || '', evenement: v.evenement || '',
-      gta: gta ? 'oui' : ''
+      gta: gta ? 'oui' : '',
+      enfanceTxt: String(v.enfance || '').replace(/\s+/g, ' ').trim(), parcoursTxt: String(v.parcours || '').replace(/\s+/g, ' ').trim(), actuelTxt: String(v.actuel || '').replace(/\s+/g, ' ').trim()
     };
     x.qu_n = (/^[aeiouyéèêâîôû]/i.test(x.n) ? "qu'" : 'que ') + x.n;
-    x.pasEtu = x.etudiant ? '' : 'oui';
+    x.pasEtu = x.etudiant || /études|diplôm|université|école|formation|\bfac\b/i.test(x.parcoursTxt) ? '' : 'oui';
     if (oi.kind === 'nation') x.heritage = fill(pick(NATION_HERIT).replace('{loc}', oi.nation.loc), x);
     else if (oi.kind === 'city') x.heritage = fill(CITY_HERIT[oi.city.v] || '', x);
     x.fort = oi.kind === 'nation' || oi.kind === 'city' ? 'oui' : '';
     const mt = disp(v.metier, g);
-    x.precaire = /^enchaîne les petits boulots/i.test(mt) ? 'oui' : '';
+    x.precaire = /enchaîne les petits boulots/i.test(mt) ? 'oui' : '';
     x.econ = /^vit de ses économies/i.test(mt) ? 'oui' : '';
     x.combines = /^vit de combines/i.test(mt) ? 'oui' : '';
     if (gta) {
@@ -272,8 +273,8 @@ window.LDV_BG = (function () {
       ["{rel} reste l'une des personnes sur qui {il} peut compter.", ['rel']]
     ],
     ajdC: [
-      ["Pour décompresser, il y a {hobby}.", ['hobby']],
-      ["Ses soirées, {il} les passe souvent loin des écrans, à retrouver une vieille habitude : {hobby}.", ['hobby']],
+      ["Pour décompresser : {hobby}.", ['hobby']],
+      ["Ses soirées, {il} les passe souvent à retrouver une vieille habitude : {hobby}.", ['hobby']],
       ["Quand la ville devient trop bruyante, {il} file sur la route, vitres baissées, radio à fond.", ['gta']],
       ["Il y a un coin de {ville} où {n} va quand {il} a besoin de réfléchir, et qu'{il} ne montrerait à personne.", ['ville']]
     ],
@@ -381,9 +382,14 @@ window.LDV_BG = (function () {
 
   const SECTIONS = {
     origines: { title: 'Origines', make: (x, used) => {
-      const parts = [choose(B.origA, x, used)];
-      if (x.heritage && Math.random() < (x.fort ? 0.9 : 0.55)) parts.push(x.heritage);
-      parts.push(choose(B.origB, x, used), choose(B.origC, x, used));
+      // avec une enfance écrite dans la fiche, on ne l'embrouille pas avec des parents tirés au hasard
+      const own = !!x.enfanceTxt;
+      const parts = [choose(own ? B.origA.filter(e => !/famille|unique|père|mère|\{(?:pere|mere)\}|fratrie|petite ville/.test(e[0])) : B.origA, x, used)];
+      if (own) parts.push(x.enfanceTxt);
+      // la famille « vient de Cayo Perico » n'a rien à ajouter à une naissance à Cayo Perico
+      if (x.heritage && !(x.naissance && x.heritage.indexOf(x.naissance) >= 0) && Math.random() < (x.fort ? 0.9 : 0.55)) parts.push(x.heritage);
+      if (!own) parts.push(choose(B.origB, x, used));
+      parts.push(choose(B.origC, x, used));
       if (Math.random() < 0.7) parts.push(choose(B.origD, x, used));
       return parts;
     } },
@@ -395,6 +401,12 @@ window.LDV_BG = (function () {
     } },
     parcours: { title: 'Parcours', make: (x, used) => {
       const parts = [];
+      if (x.parcoursTxt) {
+        parts.push(x.parcoursTxt, choose(B.parcE, x, used));
+        if (Math.random() < 0.5) parts.push(choose(B.parcC, x, used));
+        parts.push(choose(B.parcD, x, used));
+        return parts;
+      }
       if (x.adulte || x.mur) parts.push(Math.random() < 0.8 ? choose(B.parcA, x, used) : '');
       parts.push(choose(B.parcB, x, used), choose(B.parcE, x, used));
       if (Math.random() < 0.7) parts.push(choose(B.parcC, x, used));
@@ -407,7 +419,7 @@ window.LDV_BG = (function () {
       if (Math.random() < 0.85) parts.push(choose(EVT_AFTER, x, used));
       return parts;
     } },
-    aujourdhui: { title: "Aujourd'hui", make: (x, used) => [choose(B.ajdA, x, used), choose(B.ajdB, x, used), choose(B.ajdC, x, used), choose(B.ajdD, x, used)] },
+    aujourdhui: { title: "Aujourd'hui", make: (x, used) => [choose(B.ajdA, x, used), x.actuelTxt, choose(B.ajdB, x, used), choose(B.ajdC, x, used), choose(B.ajdD, x, used)] },
     secret: { title: 'Le secret', make: (x, used) => [x.secret ? fill('Il y a une chose {qu_n} ne raconte jamais. ', x) + x.secret : fill(pick(x.gta ? SECRET_GENERIC.concat(SECRET_GTA) : SECRET_GENERIC), x)] }
   };
   const PLANS = { court: ['origines', 'parcours', 'aujourdhui'], moyen: ['origines', 'jeunesse', 'parcours', 'tournant', 'aujourdhui'], long: ['origines', 'jeunesse', 'parcours', 'tournant', 'aujourdhui', 'secret'] };
