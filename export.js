@@ -214,9 +214,10 @@ window.LDV_EXPORT = (function () {
     spaced(ctx, 2, () => ctx.fillText('ALIAS  ·  FICHE FICTIVE POUR LE JEU DE RÔLE', M, h - 30));
     if (pages > 1) { ctx.textAlign = 'right'; ctx.fillText(page + ' / ' + pages, W - M, h - 30); ctx.textAlign = 'left'; }
   }
-  const newCanvas = h => {
-    const cv = document.createElement('canvas'); cv.width = Math.round(W * SCALE); cv.height = Math.round(h * SCALE);
-    const ctx = cv.getContext('2d'); ctx.scale(SCALE, SCALE);
+  const newCanvas = (h, sc) => {
+    sc = sc || SCALE;
+    const cv = document.createElement('canvas'); cv.width = Math.round(W * sc); cv.height = Math.round(h * sc);
+    const ctx = cv.getContext('2d'); ctx.scale(sc, sc);
     ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, h); ctx.textBaseline = 'alphabetic';
     return { cv, ctx };
   };
@@ -250,7 +251,7 @@ window.LDV_EXPORT = (function () {
     });
     const jpegs = [];
     for (let i = 0; i < pages.length; i++) {
-      const { cv, ctx } = newCanvas(PAGE_H);
+      const { cv, ctx } = newCanvas(PAGE_H, 1.2);
       pages[i].forEach(it => it[0].draw(ctx, M, M + 8 + it[1]));
       chrome(ctx, PAGE_H, i + 1, pages.length);
       const blob = await toBlob(cv, 'image/jpeg', 0.92);

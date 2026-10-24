@@ -47,14 +47,14 @@ Le champ **Origines** propose des pays (Américain, Français, Italien, Mexicain
 - **Traits de caractère, qualités, défauts, peurs, loisirs et styles** : jusqu'à 6 choix chacun, avec le compteur « 4/6 ».
 - **Genre** : Homme ou Femme. Les accords suivent le genre, dans les listes comme dans les textes tirés au sort.
 - **Image du personnage** : chaque personne met l'image de son choix (photo, image générée ailleurs avec une IA, dessin), la cadre dans le portrait en la faisant glisser et en zoomant, puis l'enregistre. Sans image, la fiche affiche une silhouette.
-- **Fiche finale** lisible d'un coup d'œil : un bandeau avec les infos clés, deux colonnes (le personnage, son histoire), les textes longs repliés (« Lire la suite », ou « Tout déplier »), le background dans un bloc replié, et les actions de copie et de partage dans une barre au-dessus.
+- Les textes très longs de la fiche sont repliés (« Lire la suite »), le background est dans un bloc replié, et les actions d'export et de partage sont dans une barre au-dessus.
 - **Aperçu en direct** de la fiche, sous forme de carte de personnage fictive.
 - **Traits physiques** : coupe, couleur des cheveux, yeux, teint, pilosité, lunettes, taches de rousseur, avec tirage au sort.
 - **Taille** saisie en centimètres, avec la conversion en pieds et pouces.
 - **Plusieurs personnages**, enregistrés automatiquement dans le navigateur (`localStorage`).
-- **Exports** : texte mis en forme pour Discord, texte brut, fichier `.json` (avec l'image et le background), image `.jpg`.
-- **Lien de partage** : la fiche entière, background compris, est encodée dans l'adresse (`#p=…`), sans serveur. La photo n'y figure pas (trop lourde) : elle voyage dans le fichier `.json`.
-- **Import** d'un lien ou d'un fichier `.json`.
+- **Exports** : image PNG de la fiche, PDF, texte brut, portrait en `.jpg`.
+- **Lien de partage** : la fiche entière, background compris, est encodée dans l'adresse (`#p=…`), sans serveur. La photo n'y figure pas (trop lourde).
+- **Import** d'un lien ou d'un ancien fichier `.json`.
 
 ## Idées originales
 
