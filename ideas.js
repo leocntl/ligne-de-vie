@@ -1,4 +1,4 @@
-/* Ligne de vie : banque d'idées originales.
+/* Alias : banque d'idées originales.
    Chaque liste sert à deux choses : le tirage au sort (dé) et les propositions de l'ampoule « Idées originales ».
    Les listes finissant par _gta ne s'ajoutent que dans l'univers GTA.
    Dans les phrases : {prenom} {il} {Il} {e} {qu_il} {s_il} {ville} {metier} {hobby} {logement} sont remplacés selon la fiche.

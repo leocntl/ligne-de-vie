@@ -1,4 +1,4 @@
-/* Ligne de vie
+/* Alias
    Direction artistique : verre liquide nacré. Un fond clair aux reflets irisés (lavande, ciel, rose, pêche),
    des surfaces en verre dépoli, des traits très fins et une seule signature : le dégradé irisé,
    réservé aux états actifs (choix, étape en cours, focus, carte de personnage). */
@@ -99,8 +99,9 @@ svg { display: block; }
 /* ---------- barre du haut ---------- */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; min-width: 0; }
-.brand svg { flex: none; filter: drop-shadow(0 4px 10px rgba(120, 100, 230, .35)); }
-.brand-name { font: 700 19px/1 var(--f-display); letter-spacing: -.035em; }
+.brand-mark { flex: none; width: 40px; height: 29px; filter: drop-shadow(0 4px 10px rgba(120, 100, 230, .32)); }
+.brand-name { font: 700 21px/1 var(--f-display); letter-spacing: -.05em; }
+.brand-name .dot { background: var(--irid); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .brand-sub { display: none; font: 400 11px/1 var(--f-mono); color: var(--muted); letter-spacing: .1em; text-transform: uppercase; padding-left: 12px; border-left: 1px solid var(--border-strong); }
 .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .t-short { display: none; }
@@ -481,6 +482,7 @@ body[data-view="bg"] [data-only]:not([data-only~="bg"]) { display: none !importa
   background: linear-gradient(110deg, var(--ink) 26%, #7b6cf6 58%, #3aa9e6 82%); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .home-head h1:focus { outline: none; }
+.hero-mark { width: 104px; height: 76px; margin-bottom: 8px; filter: drop-shadow(0 14px 28px rgba(120, 100, 230, .4)); }
 .home-head .lede { max-width: 44ch; text-wrap: balance; font-size: 17px; }
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; width: min(100%, 680px); }
 .tile {

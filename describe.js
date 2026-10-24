@@ -1,4 +1,4 @@
-/* Ligne de vie : comprend une description libre en français et en tire les champs de la fiche.
+/* Alias : comprend une description libre en français et en tire les champs de la fiche.
    Ce n'est pas une IA : l'analyse repère des mots-clés, des synonymes et quelques tournures de phrase
    (âge, genre, origines, ville, métier, apparence, caractère, relations...). Tout ce qui n'est pas reconnu
    est gardé tel quel par le site dans les notes. Tout se passe dans le navigateur, rien n'est envoyé. */

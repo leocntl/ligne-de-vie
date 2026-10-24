@@ -1,4 +1,4 @@
-/* Ligne de vie : créateur de personnage RP.
+/* Alias : créateur de personnage RP.
    Tout tourne dans le navigateur. Les fiches sont enregistrées dans localStorage. */
 (function () {
   'use strict';
@@ -1442,7 +1442,7 @@ ${bgHintsHTML(c)}${body}</div>
     const c = C(), gta = W() === 'gta', name = c && !c.example ? sheet(c).name : '';
     const tile = (href, line, ico, title, text, go) => `<a class="tile" href="${href}" style="--c:var(${line})"><span class="tile-ico">${ico}</span><span class="tile-t">${title}</span><span class="tile-d">${text}</span><span class="tile-go">${go}</span></a>`;
     const wbtn = (w, label) => `<button type="button" class="chip" data-act="world" data-w="${w}" aria-pressed="${W() === w}">${label}</button>`;
-    return `<div class="home-in"><header class="home-head"><p class="eyebrow">Jeu de rôle · ${gta ? 'GTA RP' : 'États-Unis'}</p><h1 tabindex="-1">Ligne de vie</h1><p class="lede">Invente un personnage, puis écris son histoire. Tout reste dans ton navigateur.</p></header>
+    return `<div class="home-in"><header class="home-head"><svg class="hero-mark" viewBox="0 0 44 32" aria-hidden="true"><defs><linearGradient id="alh-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8f7dff"/><stop offset="1" stop-color="#4fc3f7"/></linearGradient><linearGradient id="alh-b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f58fc8"/><stop offset="1" stop-color="#ffb877"/></linearGradient><clipPath id="alh-c"><circle cx="15" cy="16" r="12"/></clipPath></defs><circle cx="15" cy="16" r="12" fill="url(#alh-a)" fill-opacity=".9"/><circle cx="29" cy="16" r="12" fill="url(#alh-b)" fill-opacity=".9"/><circle cx="29" cy="16" r="12" clip-path="url(#alh-c)" fill="#fff" fill-opacity=".55"/><path d="M5.4 12.2A10.6 10.6 0 0 1 13.6 5.2" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.3" stroke-linecap="round"/><path d="M38.6 19.8A10.6 10.6 0 0 1 30.4 26.8" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.3" stroke-linecap="round"/></svg><p class="eyebrow">Jeu de rôle · ${gta ? 'GTA RP' : 'États-Unis'}</p><h1 tabindex="-1">Alias<span aria-hidden="true">.</span></h1><p class="lede">Invente un personnage, puis écris son histoire. Tout reste dans ton navigateur.</p></header>
 <div class="tiles">${tile('#creation', '--l1', TILE_ICON.creer, 'Création de personnage', 'Identité, apparence, caractère, relations. Décris-le en une phrase ou construis-le pas à pas.', name ? 'Reprendre ' + esc(name) : 'Commencer')}${tile('#background', '--l4', TILE_ICON.histoire, 'Background', 'Rédige l\'histoire d\'un personnage à partir de sa fiche : origines, parcours, tournant.', name ? 'Pour ' + esc(name) : 'Choisir un personnage')}</div>
 <div class="home-boxes">
 <section class="home-box" aria-labelledby="ideasT"><h2 class="box-t" id="ideasT">Une idée pour commencer ?</h2><p class="hint">Un clic crée le personnage correspondant, que tu pourras ensuite modifier.</p>
@@ -1480,7 +1480,7 @@ ${bgHintsHTML(c)}${body}</div>
     document.body.classList.remove('show-preview');
     $('#home').hidden = v !== 'home'; $('#creator').hidden = v !== 'creator'; $('#bgPage').hidden = v !== 'bg';
     $$('[data-nav]').forEach(a => { if (a.dataset.nav === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-    document.title = (v === 'home' ? '' : v === 'bg' ? 'Background · ' : 'Création · ') + 'Ligne de vie';
+    document.title = (v === 'home' ? '' : v === 'bg' ? 'Background · ' : 'Création · ') + 'Alias';
     renderView();
     if (moved) {
       window.scrollTo(0, 0);

@@ -1,4 +1,4 @@
-/* Ligne de vie : image choisie par la personne (photo, image générée ailleurs avec une IA, dessin...).
+/* Alias : image choisie par la personne (photo, image générée ailleurs avec une IA, dessin...).
    Tout se passe dans le navigateur : l'image est lue, cadrée au format 5:6 du portrait puis enregistrée en JPEG.
    Rien n'est envoyé sur internet. */
 window.LDV_PHOTO = (function () {

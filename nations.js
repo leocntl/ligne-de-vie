@@ -1,4 +1,4 @@
-/* Ligne de vie : origines du personnage.
+/* Alias : origines du personnage.
    Une origine est un pays (« Français|Française »), « Américain|Américaine », ou une ville de l'univers GTA (« Vice City »).
    Chaque pays a ses prénoms et noms ; ceux qui n'en ont pas de propres réutilisent une liste de data.js (from).
    adj : adjectifs reconnus dans une description (sans accents) ; cue : nom du pays, reconnu après « originaire de », « né en »...

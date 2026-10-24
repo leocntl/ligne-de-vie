@@ -1,4 +1,4 @@
-# Ligne de vie
+# Alias
 
 Créateur de personnage et rédacteur de background pour jeu de rôle contemporain et réaliste, en français, dans l'univers de GTA (Los Santos, Blaine County, Vice City, Liberty City) ou aux États-Unis.
 Site statique : du HTML, du CSS et du JavaScript, sans outil de build ni serveur. Projet de fan, sans lien avec Rockstar Games.

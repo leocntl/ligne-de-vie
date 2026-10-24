@@ -1,4 +1,4 @@
-/* Ligne de vie : listes et tables de tirage, pensées pour des personnages américains.
+/* Alias : listes et tables de tirage, pensées pour des personnages américains.
    Convention d'écriture :
    - "Têtu|Têtue"            masculin|féminin, la forme inclusive est calculée (Têtu·e)
    - "Sûr|Sûre~ de soi"      ce qui suit "~" est un suffixe commun aux trois formes

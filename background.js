@@ -1,4 +1,4 @@
-/* Ligne de vie : rédige le background (l'histoire) d'un personnage à partir de sa fiche.
+/* Alias : rédige le background (l'histoire) d'un personnage à partir de sa fiche.
    Chaque paragraphe est assemblé à partir de phrases types tirées au hasard, dans lesquelles on glisse
    ce que la fiche contient (ville, métier, traits, relations, événement marquant...).
    Les phrases qui parlent d'un élément absent de la fiche ne sont jamais choisies. */
