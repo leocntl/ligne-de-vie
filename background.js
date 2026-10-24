@@ -80,7 +80,25 @@ window.LDV_BG = (function () {
     'Merryweather': ["{n} travaille pour Merryweather, une société de sécurité privée qui paie bien et pose peu de questions.", "Chez Merryweather, {n} a appris à exécuter les ordres sans toujours en connaître le but."]
   };
 
-  const ordinaryJob = m => !/^(?:étudiant|alternant|retrait|sans emploi|en reconversion)/i.test(m || '');
+  // ce que dit la famille de ses racines, selon le pays d'origine ({loc} : « en France », « au Japon »)
+  const NATION_HERIT = [
+    "Les racines de la famille plongent {loc}, et cela se sent dans la cuisine, les fêtes et quelques mots que {n} glisse encore dans ses phrases.",
+    "Une partie de la famille vit encore {loc}, et les appels du dimanche rythment les semaines de {n}.",
+    "Toutes les histoires de famille viennent de là-bas, {loc}, et {n} les connaît par cœur sans y avoir jamais vécu."
+  ];
+  // et quand on vient d'une ville de l'univers GTA
+  const CITY_HERIT = {
+    'Los Santos': "Los Santos a toujours été la ville de {n} : ses embouteillages, ses collines et ses illusions.",
+    'Vice City': "{n} est enfant de Vice City, de ses néons, de sa chaleur moite et de ses fortunes qui changent de mains.",
+    'Liberty City': "{n} est enfant de Liberty City, de ses ponts, de son métro et de ses quartiers où chacun a son accent.",
+    'San Fierro': "San Fierro a laissé à {n} sa brume, ses collines et un goût pour les tramways et les secrets.",
+    'Las Venturas': "{n} a grandi dans le bruit des casinos de Las Venturas, où l'on apprend très tôt que la chance se pèse.",
+    'Blaine County': "{n} vient du Blaine County, de ses routes poussiéreuses, de ses ranchs et de voisins qu'on ne voit qu'une fois par mois.",
+    'Sandy Shores': "{n} vient de Sandy Shores, où la chaleur écrase tout et où l'on se méfie des étrangers.",
+    'Paleto Bay': "{n} vient de Paleto Bay, petite ville de pêcheurs et de bûcherons où tout se sait avant la fin de la journée."
+  };
+
+  const ordinaryJob = m => !/^(?:étudiant|alternant|retrait|sans emploi|en reconversion|enchaîne|vit de)/i.test(m || '');
 
   /* ---------- contexte : tout ce que la fiche permet de dire ---------- */
   function context(c, disp, f, world) {
@@ -95,7 +113,8 @@ window.LDV_BG = (function () {
     const rel = (c.rel || []).find(r => r.nom);
     const sit = lc(disp(v.situation, g));
     const villes = (window.LDV && window.LDV.VILLES) || [];
-    const naissance = v.ville ? (Math.random() < 0.6 ? strip(v.ville) : strip(pick(villes.filter(x => x !== v.ville)) || v.ville)) : '';
+    const oi = window.LDV && window.LDV.originInfo ? window.LDV.originInfo(v.origine) : { kind: 'other' };
+    const naissance = oi.kind === 'city' ? strip(pick(oi.city.lieux)) : v.ville ? (Math.random() < 0.6 ? strip(v.ville) : strip(pick(villes.filter(x => x !== v.ville)) || v.ville)) : '';
     const sibs = pick([0, 1, 1, 2, 3]);
     const fratrie = sibs === 0 ? '' : pick(sibs === 1 ? ['un petit frère', 'une grande sœur', 'un grand frère', 'une petite sœur'] : sibs === 2 ? ['deux frères', 'deux sœurs', 'un frère et une sœur'] : ['trois frères', 'deux sœurs et un frère', 'trois sœurs']);
     const x = {
@@ -113,11 +132,18 @@ window.LDV_BG = (function () {
       rel: rel ? rel.nom : '', motivation: v.motivation ? cap(v.motivation.trim().replace(/\s+/g, ' ')) : '', secret: v.secret ? cap(v.secret.trim().replace(/\s+/g, ' ')) : '',
       situation: sit && sit !== "c'est compliqué" ? sit : '', compliquee: sit === "c'est compliqué" ? 'oui' : '',
       pere: pick(PERES), mere: pick(MERES), fratrie, unique: sibs === 0 ? 'oui' : '', ecoles: String(pick([2, 3, 4, 5])), agePar: String(pick([6, 8, 9, 11, 12])),
-      heritage: HERITAGE[v.origine] || '', evenement: v.evenement || '',
+      heritage: oi.kind === 'nation' || oi.kind === 'city' ? '' : HERITAGE[v.herit || v.origine] || '', evenement: v.evenement || '',
       gta: gta ? 'oui' : ''
     };
     x.qu_n = (/^[aeiouyéèêâîôû]/i.test(x.n) ? "qu'" : 'que ') + x.n;
     x.pasEtu = x.etudiant ? '' : 'oui';
+    if (oi.kind === 'nation') x.heritage = fill(pick(NATION_HERIT).replace('{loc}', oi.nation.loc), x);
+    else if (oi.kind === 'city') x.heritage = fill(CITY_HERIT[oi.city.v] || '', x);
+    x.fort = oi.kind === 'nation' || oi.kind === 'city' ? 'oui' : '';
+    const mt = disp(v.metier, g);
+    x.precaire = /^enchaîne les petits boulots/i.test(mt) ? 'oui' : '';
+    x.econ = /^vit de ses économies/i.test(mt) ? 'oui' : '';
+    x.combines = /^vit de combines/i.test(mt) ? 'oui' : '';
     if (gta) {
       // l'ambiance du quartier de naissance, puis celle du quartier actuel quand ce n'est pas le même
       x.lieuN = LIEUX[naissance] || '';
@@ -211,7 +237,11 @@ window.LDV_BG = (function () {
       ["{n} exerce comme {metier} depuis plusieurs années, et le métier est devenu une grande partie de son identité.", ['metierPro']],
       ["{n} est actuellement {metier}, et jongle entre les cours, un job d'appoint et un budget serré.", ['etudiant']],
       ["Après des années de travail, {n} est désormais {metier} et profite d'un rythme plus lent.", ['retraite']],
-      ["{n} est pour l'instant {metier}, et cherche une nouvelle direction.", ['chomage']]
+      ["{n} est pour l'instant {metier}, et cherche une nouvelle direction.", ['chomage']],
+      ["{n} enchaîne les petits boulots, au gré des annonces et des coups de fil, sans jamais savoir de quoi sera fait le mois suivant.", ['precaire']],
+      ["Depuis des années, {n} vit de petits boulots : un jour une livraison, le lendemain un chantier, rarement la même chose deux semaines de suite.", ['precaire']],
+      ["{n} vit de ses économies, et {il} sait qu'elles ne dureront pas.", ['econ']],
+      ["{n} vit de combines, de services rendus et de coups de téléphone qu'{il} ne passe pas devant n'importe qui.", ['combines']]
     ],
     parcC: [
       ["{il} aime son quotidien pour ce qu'il permet de rencontrer, moins pour ce qu'il rapporte.", []],
@@ -350,7 +380,7 @@ window.LDV_BG = (function () {
   const SECTIONS = {
     origines: { title: 'Origines', make: (x, used) => {
       const parts = [choose(B.origA, x, used)];
-      if (x.heritage && Math.random() < 0.55) parts.push(x.heritage);
+      if (x.heritage && Math.random() < (x.fort ? 0.9 : 0.55)) parts.push(x.heritage);
       parts.push(choose(B.origB, x, used), choose(B.origC, x, used));
       if (Math.random() < 0.7) parts.push(choose(B.origD, x, used));
       return parts;

@@ -56,11 +56,26 @@ window.LDV_DESCRIBE = (function () {
     ranger: 'Gardien|Gardienne~ de parc national', fermier: 'Éleveur|Éleveuse~ de bétail', fermiere: 'Éleveur|Éleveuse~ de bétail', eleveur: 'Éleveur|Éleveuse~ de bétail', cowboy: 'Éleveur|Éleveuse~ de bétail',
     freelance: 'Freelance', independant: 'Freelance', cuisinier: 'Cuisinier|Cuisinière', cuisiniere: 'Cuisinier|Cuisinière', vendeur: 'Vendeur|Vendeuse~ en magasin', vendeuse: 'Vendeur|Vendeuse~ en magasin'
   };
+  // des situations de travail qui ne sont pas des métiers de la liste : on les garde telles quelles
+  const PHRASE_JOBS = [
+    [/(?:enchain|cumul|multipli|accumul|alterne)\w*\s+(?:les |des |plusieurs |de )?(?:petits? |multiples? )?(?:boulots?|jobs?|emplois?|contrats?|missions?|taf)|petits? (?:boulots?|jobs?|emplois?)|(?:boulots?|jobs?|emplois?) (?:precaires?|alimentaires?|au noir)|travaille au noir|travail au noir|vit de petits/, 'Enchaîne les petits boulots'],
+    [/interim(?:aire)?s?(?![a-z])/, 'Intérimaire'],
+    [/touche[- ]a[- ]tout|(?:homme|femme) a tout faire/, 'Touche-à-tout'],
+    [/vit de (?:ses )?economies|(?<![a-z])rentiere?s?(?![a-z])/, 'Vit de ses économies'],
+    [/vit de combines|combin(?:ard|arde)s?(?![a-z])|magouill\w*|arnaqu\w*|escroc\w*|petit(?:e)? delinquant(?:e)?/, 'Vit de combines'],
+    [/streameu[rs]e?s?|streamer|youtubeu\w+|influenceu\w+|tiktokeu\w+/, 'Streamer|Streameuse'],
+    [/(?<![a-z])dj(?![a-z])|deejay/, 'DJ'],
+    [/mannequin/, 'Mannequin'],
+    [/garde du corps|bodyguard/, 'Garde du corps'],
+    [/caissier|caissiere/, 'Caissier|Caissière'],
+    [/plongeu[rs]e?s?(?![a-z])/, 'Plongeur|Plongeuse~ en restauration'],
+    [/vendeu[rs]e? (?:de rue|ambulant\w*)|colporteu\w+|a la sauvette/, 'Vendeur|Vendeuse~ de rue']
+  ];
   const STOP_STEM = ['ancien', 'charge', 'agent', 'gerant', 'assistant', 'conseiller', 'adjoint', 'reparat', 'proprietaire'];
 
   const ORIGINS_RAW = [
     ['Amérindiennes', /(amerindien|native american|indien d'amerique|navajo|cherokee|sioux|apache|lakota|premiere nation|autochtone)/],
-    ['Afro-américaines', /(afro[- ]?americain|african[- ]american|noir americain|noire americaine|(?<![a-z])black(?![a-z])|(?:homme|femme|garcon|fille|mec|jeune|dame|gars|type|etudiant|etudiante)s? noir(?:e)?s?(?![a-z])|(?<![a-z])(?:un|une) noir(?:e)?(?![a-z])|peau noire|noir de peau|ebene|antillais|haitien|jamaicain|nigerian|senegalais|ghaneen|africain)/],
+    ['Afro-américaines', /(afro[- ]?americain|african[- ]american|noir americain|noire americaine|(?<![a-z])black(?![a-z])|(?:homme|femme|garcon|fille|mec|jeune|dame|gars|type|etudiant|etudiante)s? noir(?:e)?s?(?![a-z])|(?<![a-z])(?:un|une) noir(?:e)?(?![a-z])|(?<=[,;]\s*)noire?(?![a-z])|peau noire|noir de peau|ebene|antillais|haitien|jamaicain|nigerian|senegalais|ghaneen|africain)/],
     ['Latino-américaines', /(latino|latina|hispanique|hispanic|mexicain|portoricain|cubain|colombien|salvadorien|dominicain|guatemalteque|chicano|vénézuélien|venezuelien|espagnol)/],
     ['Cajuns (Louisiane)', /(cajun|creole)/],
     ['Irlandaises', /(irlandais|irish)/],
@@ -148,7 +163,8 @@ window.LDV_DESCRIBE = (function () {
   function parse(text, D) {
     const orig = String(text || '').slice(0, 1500);
     let t = norm(orig);
-    const v = {}, found = [], rel = [];
+    const v = {}, found = [], rel = [], unclear = [];
+    const ext = (base, k) => base.concat((D.IDEES && D.IDEES[k]) || [], (D.IDEES && D.IDEES[k + '_gta']) || []);
     let fVote = 0, mVote = 0;
     const note = s => found.push(s);
 
@@ -208,7 +224,29 @@ window.LDV_DESCRIBE = (function () {
     if (age) { v.age = clamp(age, 14, 100); note(v.age + ' ans'); }
 
     /* origines */
-    for (const o of ORIGINS) { if (o[1].test(t)) { v.origine = o[0]; note('Origines : ' + o[0].toLowerCase()); break; } }
+    // un pays (« un Français », « d'origine italienne », « née au Mexique »), « américain », une ville de GTA (« né à Vice City »)
+    // ou une origine familiale (« latino », « noir »...) qui reste cachée et choisit les noms et le teint
+    const NAT = (D.NATIONS || []).filter(n => n.adj);
+    const DET = "(?:un|une|jeune|vieux|vieille|ancien|ancienne|homme|femme|garcon|fille|mec|type|gars|dame|etudiant|etudiante|couple)";
+    const GAP = "(?:(?!parle|parlant|apprend|cours|langue|accent)[a-z'-]+\\s+){0,3}";
+    const CUE = "(?:d'origine|origine|originaire|nationalite|ascendance|expatrie|expatriee|immigre|immigree|natif|native|vient|venu|venue|arrive|arrivee|ne|nee)\\s+(?:de la |de l'|de |du |d'|des |en |au |aux )?";
+    const tn = t.replace(/indiens?(?:nes?)? d'amerique/g, 'amerindien');
+    let nat = null;
+    for (const n of NAT) {
+      const a = '(?:' + n.adj + ')', c = n.cue ? '(?:' + a + '|' + n.cue + ')' : a;
+      if (new RegExp('(?:^\\s*' + a + '|(?<![a-z])' + DET + '\\s+' + GAP + a + '|(?<![a-z])' + CUE + c + ')(?![a-z])').test(tn)) { nat = n; break; }
+    }
+    let cityO = null;
+    for (const c of D.ORIGINES_VILLES || []) {
+      const cm = new RegExp("(?<![a-z])(?:originaire|natif|native|ne|nee|vient|venu|venue|grandi|grandit|elevee|eleve)\\s+(?:de |d'|du |a |au |dans |en )?(?:la |le |l')?(?:" + c.key + ")(?![a-z])").exec(t);
+      if (cm) { cityO = c; t = t.slice(0, cm.index) + ' '.repeat(cm[0].length) + t.slice(cm.index + cm[0].length); break; }
+    }
+    let herit = null;
+    for (const o of ORIGINS) { if (o[1].test(t)) { herit = o[0]; break; } }
+    if (nat && !nat.mix) v.origine = nat.v;
+    else if (cityO) { v.origine = cityO.v; if (herit) v.herit = herit; }
+    else if (nat) { v.origine = nat.v; if (herit) v.herit = herit; }
+    else if (herit) { v.origine = D.NATIONS[0].v; v.herit = herit; }
 
     /* ville */
     const hits = [];
@@ -241,18 +279,24 @@ window.LDV_DESCRIBE = (function () {
     if (v.ville) note('Ville : ' + v.ville);
 
     /* métier */
-    const jobs = D.METIERS.concat(D.METIERS_ETUDIANTS, D.METIERS_GTA || [], D.METIERS_ETUDIANTS_GTA || [], ['Retraité|Retraitée']);
+    const jobs = D.METIERS.concat(D.METIERS_ETUDIANTS, D.METIERS_GTA || [], D.METIERS_ETUDIANTS_GTA || [], ext([], 'metier'), ['Retraité|Retraitée']);
     let best = 0, bestList = [], bestF = null;
+    const posOf = {}, lenOf = {}, fOf = {};
     jobs.forEach(raw => {
       const fs = forms(raw);
       const keys = fs.map(f => ({ k: f.k, f: f.f }));
       fs.forEach(f => { const w = f.k.split(/[\s-]+/)[0]; if (w.length >= 6 && !STOP_STEM.some(st => w.indexOf(st) === 0)) keys.push({ k: w, f: f.f }); });
       keys.forEach(x => {
-        if (x.k.length < 4 || !wordRe(x.k, true).test(t)) return;
+        const jm = x.k.length < 4 ? null : wordRe(x.k, true).exec(t);
+        if (!jm) return;
+        posOf[raw] = Math.min(posOf[raw] === undefined ? 1e9 : posOf[raw], jm.index);
+        if ((lenOf[raw] || 0) < x.k.length) { lenOf[raw] = x.k.length; fOf[raw] = x.f; }
         if (x.k.length > best) { best = x.k.length; bestList = [raw]; bestF = x.f; }
         else if (x.k.length === best && bestList.indexOf(raw) < 0) bestList.push(raw);
       });
     });
+    // les métiers dont le mot est presque aussi long que le meilleur restent en lice : c'est celui cité en premier qui l'emporte
+    bestList = Object.keys(lenOf).filter(r => lenOf[r] >= best - 2);
     // un métier lié à un lieu (« à Paleto Bay ») n'est gardé que si c'est le lieu du personnage ; sinon on retire le lieu
     const BOUND = /Sandy Shores|Paleto Bay|Grapeseed|Vinewood|Los Santos/;
     const unbind = raw => {
@@ -262,8 +306,21 @@ window.LDV_DESCRIBE = (function () {
     };
     // dans l'univers GTA on préfère les métiers GTA, dans l'autre les métiers génériques
     const gtaWorld = !!D.VILLES_GTA && D.VILLES === D.VILLES_GTA, isG = raw => (D.METIERS_GTA || []).indexOf(raw) >= 0;
-    const pref = bestList.filter(raw => isG(raw) === gtaWorld);
-    let job = bestList.length ? unbind(pick(pref.length ? pref : bestList)) : null;
+    // les métiers qui vont avec le lieu du personnage d'abord (« infirmière à Pillbox Hill » n'a pas de sens à Chicago)
+    const fitList = D.jobFits && v.ville ? bestList.filter(raw => D.jobFits(raw, v.ville)) : bestList;
+    const base = fitList.length ? fitList : bestList;
+    const pref = base.filter(raw => isG(raw) === gtaWorld);
+    const poolJ = pref.length ? pref : base;
+    // quand plusieurs métiers sont cités (« serveuse, étudiante en cinéma le jour »), celui qui vient en premier l'emporte
+    const posJ = raw => (posOf[raw] === undefined ? 1e9 : posOf[raw]), early = Math.min.apply(null, poolJ.map(posJ));
+    const chosen = bestList.length ? pick(poolJ.filter(raw => posJ(raw) === early)) : null;
+    let job = chosen ? unbind(chosen) : null;
+    if (chosen && fOf[chosen] !== undefined) bestF = fOf[chosen];
+    // « étudiante en cinéma » : le domaine cité remplace celui tiré au hasard dans la liste
+    if (job && /^Étudiant/.test(job)) {
+      const sm = om.match(/[Éé]tudiante?s?\s+en\s+(?:l'|la |le |les )?([^,.;]{3,34}?)(?=[,.;]|\s+de\s+\d|\s+\d|\s+(?:à|au|aux|le|la|et|mais|qui|depuis|dans)\s|$)/i);
+      if (sm) { const fld = sm[1].trim(); job = jobs.find(raw => /^Étudiant/.test(raw) && norm(raw).indexOf(norm(fld)) >= 0) || 'Étudiant|Étudiante~ en ' + fld; }
+    }
     if (job && /militaire/.test(job)) {
       // "ancien militaire, mécanicien" : on retient l'autre métier, le passé militaire devient un événement marquant
       const others = jobs.filter(raw => raw.indexOf('militaire') < 0 && forms(raw).some(f => f.k.length >= 6 && wordRe(f.k.split(/[\s-]+/)[0], true).test(t)));
@@ -277,6 +334,15 @@ window.LDV_DESCRIBE = (function () {
       const fm = om.match(/(?:travaille (?:comme|en tant que)|exerce (?:comme|le metier de)|est employ[ée]e? comme|m[ée]tier\s*:|profession\s*:|[Mm]étier de|profession de)\s+(?:un |une |le |la |l')?([\p{L}][\p{L}' -]{2,34}?)(?=[,.;]| et | à | au | dans | depuis | pour |$)/u);
       if (fm) job = cap(fm[1].trim());
     }
+    // « enchaîne les petits boulots », « intérimaire »... : des situations de travail qui ne sont pas dans la liste de métiers
+    const pj = PHRASE_JOBS.find(p => p[0].test(t));
+    if (pj && !(job && /avant de devenir|avant d'etre|avant de travailler|puis devenu|puis devenue/.test(t))) { job = pj[1]; bestF = null; }
+    if (!job) {
+      const wm = om.match(/(?:travaille|bosse|boulotte)\s+((?:chez|dans|pour|au|aux|à)\s+[^,.;]{3,45}?)(?=\s+(?:à|au|aux|en|depuis|et|mais)\s|[,.;]|$)/i);
+      if (wm) job = 'Employé|Employée~ ' + wm[1].trim();
+    }
+    // la phrase parle de travail mais rien n'a pu être classé : mieux vaut le dire que d'inventer un métier qui la contredit
+    if (!job && /boulot|(?<![a-z])jobs?(?![a-z])|travail|emploi|metier|profession|gagne sa vie|bosse|chomage|salari/.test(t)) unclear.push('metier');
     if (job) { v.metier = job; vote(bestF); }
 
     /* affiliation : forces de l'ordre, secours, gangs */
@@ -351,7 +417,7 @@ window.LDV_DESCRIBE = (function () {
 
     /* style vestimentaire */
     const styles = [];
-    D.STYLES.forEach(s => { if (hasW(work, s) || (s === 'Sportif' && false)) styles.push(s); });
+    ext(D.STYLES, 'style').forEach(s => { if (hasW(work, s) || (s === 'Sportif' && false)) styles.push(s); });
     const SYN_STYLE = [[/cowboy|cow-boy|bottes de cowboy|chapeau texan/, 'Western'], [/punk|gothique|goth(?![a-z])|rock|metalleux|emo(?![a-z])|skater|piercing/, 'Alternatif'], [/elegant|elegante|chic|bien habille|classe(?![a-z])/, 'Soigné'], [/costume|cravate|tailleur/, 'Classique'], [/hipster|retro|annees 80|annees 70/, 'Vintage'], [/bleu de travail|ouvrier|salopette|bottes de chantier/, 'Workwear'], [/sweat a capuche|hoodie|baskets|casquette/, 'Streetwear'], [/jean et t-shirt|jean et tee|simple/, 'Décontracté'], [/survetement|jogging|maillot/, 'Tenue de sport d\'équipe']];
     SYN_STYLE.forEach(s => { if (wb(s[0]).test(work) && styles.indexOf(s[1]) < 0) styles.push(s[1]); });
     if (styles.length) { v.style = styles.slice(0, 3); note('Style : ' + v.style.join(', ').toLowerCase()); }
@@ -368,7 +434,7 @@ window.LDV_DESCRIBE = (function () {
     }
 
     /* caractère : traits, qualités, défauts */
-    const lists = { traits: D.TRAITS, qualites: D.QUALITES, defauts: D.DEFAUTS };
+    const lists = { traits: ext(D.TRAITS, 'traits'), qualites: ext(D.QUALITES, 'qualites'), defauts: ext(D.DEFAUTS, 'defauts') };
     const maxN = { traits: 5, qualites: 3, defauts: 3 };
     const got = { traits: [], qualites: [], defauts: [] };
     const tryAdd = (raw, fv) => {
@@ -396,17 +462,17 @@ window.LDV_DESCRIBE = (function () {
     /* peurs, loisirs */
     const peurs = [];
     const pm = om.match(/(?:a peur|peur|phobie|craint|terrifi[ée]e?|angoiss[ée]e?)\s+(?:de la |de l'|des |du |de |d')\s*([\p{L}][\p{L}' -]{2,34}?)(?=[,.;]| et | mais |$)/u);
-    D.PEURS.forEach(raw => { const k = forms(raw)[0].k.replace(/^(?:la |le |les |l'|que )/, ''); if (k.length >= 5 && wordRe(k, true).test(t) && /peur|phobie|craint|terrifi|angoiss|hante|redoute/.test(t)) peurs.push(raw); });
+    ext(D.PEURS, 'peurs').forEach(raw => { const k = forms(raw)[0].k.replace(/^(?:la |le |les |l'|que )/, ''); if (k.length >= 5 && wordRe(k, true).test(t) && /peur|phobie|craint|terrifi|angoiss|hante|redoute/.test(t)) peurs.push(raw); });
     if (pm && peurs.length === 0) {
       const lead = om.slice(pm.index, pm.index + pm[0].length).match(/(de la |de l'|des |du |de |d')/i);
       const art = lead ? ({ 'de la ': 'La ', "de l'": "L'", 'des ': 'Les ', 'du ': 'Le ', 'de ': '', "d'": '' }[lead[1].toLowerCase()]) : '';
       const val = (art + (art.endsWith("'") || !art ? pm[1] : pm[1])).trim();
-      const hit = D.PEURS.find(r => norm(forms(r)[0].k) === norm(val));
+      const hit = ext(D.PEURS, 'peurs').find(r => norm(forms(r)[0].k) === norm(val));
       peurs.push(hit || cap(val));
     }
     if (peurs.length) v.peurs = peurs.slice(0, 3);
     const loisirs = [];
-    D.LOISIRS.concat(D.LOISIRS_GTA || []).forEach(raw => { const k = norm(raw); if (raw !== 'Mode' && wordRe(k, true).test(t)) loisirs.push(raw); });
+    ext(D.LOISIRS.concat(D.LOISIRS_GTA || []), 'loisirs').forEach(raw => { const k = norm(raw); if (raw !== 'Mode' && wordRe(k, true).test(t)) loisirs.push(raw); });
     Object.keys(SYN_LOISIR).forEach(k => { if (k.length >= 4 && wordRe(norm(k), true).test(t) && loisirs.indexOf(SYN_LOISIR[k]) < 0) loisirs.push(SYN_LOISIR[k]); });
     if (loisirs.length) { v.loisirs = loisirs.slice(0, 5); note('Loisirs : ' + v.loisirs.join(', ').toLowerCase()); }
 
@@ -432,6 +498,7 @@ window.LDV_DESCRIBE = (function () {
     const front = [];
     if (genre) front.push(genre);
     if (v.metier) front.push('Métier : ' + show(v.metier).toLowerCase());
+    if (v.origine) { const og = show(v.origine); front.push('Origines : ' + (D.originInfo(v.origine).kind === 'city' ? og : og.toLowerCase())); }
     const labelsLate = [];
     if (v.traits) labelsLate.push('Traits : ' + v.traits.map(x => show(x).toLowerCase()).join(', '));
     if (v.qualites) labelsLate.push('Qualités : ' + v.qualites.map(x => show(x).toLowerCase()).join(', '));
@@ -441,9 +508,9 @@ window.LDV_DESCRIBE = (function () {
     // le nom de famille indique parfois l'origine
     if (!v.origine && v.nom) {
       const n = norm(v.nom), o = D.ORIGINES.find(x => x.noms.some(s => norm(s) === n));
-      if (o) { v.origine = o.label; note('Origines : ' + o.label.toLowerCase()); }
+      if (o) { v.origine = D.NATIONS[0].v; v.herit = o.label; }
     }
-    return { v, rel, found, genre: genre || null };
+    return { v, rel, found, genre: genre || null, unclear };
   }
 
   return { parse };

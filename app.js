@@ -88,7 +88,7 @@
       prenom: disp(v.prenom, f) || 'Le personnage',
       nom: disp(v.nom, f),
       ville: D.cityName(v.ville) || 'sa ville',
-      metier: lc(disp(v.metier, f)) || 'un métier',
+      metier: metierTxt(v.metier, f),
       logement: lc(v.logement) || 'dans un petit logement',
       hobby: lc(first) || 'la musique',
       il, Il: cap(il), e: { f: 'e', m: '' }[f],
@@ -97,15 +97,39 @@
     };
     return tpl.replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m));
   }
-  const pool = c => D.ORIGINES.find(o => o.label === c.v.origine) || D.ORIGINES[0];
+  // une origine est un pays, « Américain » ou une ville de GTA. Pour « Américain » et les villes, une origine familiale cachée
+  // (herit : « Latino-américaines »...) choisit les prénoms, les noms et les traits physiques
+  const needsHerit = o => D.originInfo(o).kind !== 'nation';
+  function ensureHerit(c) {
+    if (!needsHerit(c.v.origine)) { delete c.v.herit; return; }
+    if (!D.ORIGINES.some(o => o.label === c.v.herit)) c.v.herit = wpick(D.ORIGINES.map(o => [o.label, o.poids || 1]));
+  }
+  const pool = c => {
+    const i = D.originInfo(c.v.origine);
+    return i.kind === 'nation' ? i.nation : D.ORIGINES.find(o => o.label === c.v.herit) || D.ORIGINES[0];
+  };
+  const lookGroup = c => {
+    const i = D.originInfo(c.v.origine);
+    if (i.kind === 'nation') return i.nation.look;
+    const l = c.v.herit || '';
+    return /Afro/.test(l) ? 'dark' : /Latino|Arabes|Amérindiennes/.test(l) ? 'mid' : /Asiatiques/.test(l) ? 'asia' : 'eu';
+  };
+  // « Enchaîne les petits boulots » ne se glisse pas dans « travaille comme… » : on met un équivalent
+  function metierTxt(raw, f) {
+    const m = lc(disp(raw, f));
+    if (/^enchaîne les petits boulots/i.test(m)) return f === 'f' ? 'femme à tout faire' : 'homme à tout faire';
+    if (/^vit de ses économies/i.test(m)) return f === 'f' ? 'rentière' : 'rentier';
+    if (/^vit de combines/i.test(m)) return f === 'f' ? 'débrouillarde' : 'débrouillard';
+    return m || 'un métier';
+  }
   // centimètres vers pieds et pouces, par exemple 178 donne 5'10"
   const imp = cm => { if (!cm) return ''; const t = Math.round(cm / 2.54); return Math.floor(t / 12) + "'" + (t % 12) + '"'; };
 
   /* ---------- générateurs ---------- */
   // tire au sort les traits physiques (peau, cheveux, yeux...) de façon cohérente avec l'origine, l'âge et le genre
   function genLook(c) {
-    const v = c.v, f = form(c), age = v.age || 30, org = v.origine || 'Européennes';
-    const dark = /Afro/.test(org), mid = /Latino|Arabes|Amérindiennes/.test(org), asia = /Asiatiques/.test(org);
+    const v = c.v, f = form(c), age = v.age || 30, g = lookGroup(c);
+    const dark = g === 'dark', mid = g === 'mid', asia = g === 'asia';
     const peau = dark ? rint(4, 7) : mid ? rint(2, 5) : asia ? rint(1, 3) : rint(0, 3);
     let cheveux;
     if (age >= 58 && Math.random() < 0.6) cheveux = pick([7, 7, 8]);
@@ -227,8 +251,8 @@
     surnom: { t: 'text', label: 'Surnom', ph: 'Em', max: 30, w: 'half', gen: (c, bulk) => { if (bulk && Math.random() > 0.35) return ''; const nk = nicknameIdeas(c); return nk.mine.length && Math.random() < 0.6 ? pick(nk.mine) : pick(nk.pool); } },
     age: { t: 'number', label: 'Âge', min: 14, max: 100, unit: 'ans', w: 'half', gen: () => { const r = Math.random(); return r < 0.25 ? rint(18, 25) : r < 0.7 ? rint(26, 40) : r < 0.92 ? rint(41, 60) : rint(61, 82); } },
     genre: { t: 'chips', label: 'Genre', opts: D.GENRES, w: 'half', gen: () => pick(D.GENRES) },
-    origine: { t: 'chips', label: 'Origines', opts: D.ORIGINES.map(o => o.label), custom: true, gen: () => wpick(D.ORIGINES.map(o => [o.label, o.poids || 1])) },
-    ville: { t: 'text', label: 'Ville ou quartier', ph: () => (W() === 'gta' ? 'Davis (Los Santos)' : 'Austin, TX'), list: 'villes', max: 50, w: 'half', gen: () => pick(D.VILLES) },
+    origine: { t: 'chips', label: 'Origines', opts: () => D.originList(W() === 'gta'), custom: true, gen: () => wpick(D.originWeights(W() === 'gta')) },
+    ville: { t: 'text', label: 'Ville ou quartier', ph: () => (W() === 'gta' ? 'Davis (Los Santos)' : 'Austin, TX'), list: 'villes', max: 50, w: 'half', gen: c => { const i = D.originInfo(c.v.origine); return i.kind === 'city' && Math.random() < 0.5 ? pick(i.city.lieux) : pick(D.VILLES); } },
     metier: {
       t: 'text', label: 'Métier ou occupation', ph: 'Infirmière', list: 'metiers', max: 70, w: 'half',
       gen: c => {
@@ -371,6 +395,9 @@
       const src = typeof ph.src === 'string' && ph.src.length < 900000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(ph.src) ? ph.src : '';
       c.photo.src = src;
     }
+    if (typeof rv.herit === 'string' && D.ORIGINES.some(o => o.label === rv.herit)) c.v.herit = rv.herit;
+    if (c.v.origine && D.legacyOrigin(c.v.origine)) { c.v.herit = c.v.origine; c.v.origine = D.NATIONS[0].v; }
+    ensureHerit(c);
     const rb = raw && raw.bg;
     if (rb && typeof rb === 'object') {
       const t = rb.t && typeof rb.t === 'object' ? rb.t : {};
@@ -422,7 +449,7 @@
   function setVal(c, key, val) {
     if (key === 'rel') c.rel = val;
     else if (key === 'look') Object.assign(c.v, val);
-    else c.v[key] = val;
+    else { c.v[key] = val; if (key === 'origine') ensureHerit(c); }
   }
   function genKeys(c, keys) {
     ORDER.filter(k => keys.indexOf(k) >= 0 && !c.locks[k] && F[k].gen && (!F[k].world || F[k].world === W())).forEach(k => setVal(c, k, F[k].gen(c, true)));
@@ -447,7 +474,7 @@
     const add = (title, rows) => { rows = rows.filter(r => r[1]); if (rows.length) groups.push({ title, rows }); };
     add('Identité', [
       ['Âge', v.age ? v.age + ' ans' : ''], ['Genre', v.genre],
-      ['Ville', v.ville], ['Métier', d('metier')], ['Affiliation', v.affiliation], ['Origines', v.origine], ['Situation', d('situation')], ['Logement', v.logement]
+      ['Ville', v.ville], ['Métier', d('metier')], ['Affiliation', v.affiliation], ['Origines', d('origine')], ['Situation', d('situation')], ['Logement', v.logement]
     ]);
     add('Apparence', [['Allure', allure(c)], ['Style', L('style')], ['Signes distinctifs', v.signes], ['Voix et attitude', v.attitude]]);
     add('Personnalité', [['Traits', L('traits')], ['Qualités', L('qualites')], ['Défauts', L('defauts')], ['Peurs', L('peurs')], ['Loisirs', L('loisirs')], ['Motivation', v.motivation], ['Manies', v.manies], ['Secret', v.secret]]);
@@ -724,7 +751,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     const open = ui.more.describe === undefined ? (c.example || isUntouched(c) || !!res) : ui.more.describe;
     const n = res ? res.found.length : 0;
     const result = !res ? '' : n
-      ? `<div class="desc-result"><p><b>${n} élément${n > 1 ? 's' : ''} compris.</b> Le reste est complété au hasard, et ta phrase est gardée dans « Notes libres ».</p><ul class="idc-chips">${res.found.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`
+      ? `<div class="desc-result"><p><b>${n} élément${n > 1 ? 's' : ''} compris.</b> Le reste est complété au hasard, et ta phrase est gardée dans « Notes libres ».</p><ul class="idc-chips">${res.found.map(x => `<li>${esc(x)}</li>`).join('')}</ul>${res.unclear.indexOf('metier') >= 0 ? '<p class="hint"><b>Métier non compris :</b> ta phrase parle de travail, mais je n\'ai pas su le classer. Écris-le dans « Métier ».</p>' : ''}${res.random.length ? `<p class="hint">Tiré au hasard : ${esc(res.random.join(', '))}. Précise-le dans ta phrase pour le fixer.</p>` : ''}</div>`
       : '<div class="desc-result"><p><b>Rien de reconnu.</b> Ajoute l\'âge, le métier, la ville, l\'apparence ou le caractère.</p></div>';
     return `<details class="group describe" data-more="describe"${open ? ' open' : ''}><summary>${ICON.spark}<span>Décrire le personnage que tu imagines</span></summary>
 <div class="describe-body"><textarea class="in" id="descText" rows="3" maxlength="800" placeholder="Ex. : une infirmière de 34 ans à Chicago, rousse, sarcastique, avec une cicatrice sur la main">${esc(ui.descText)}</textarea>
@@ -748,11 +775,13 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     // origines non précisées : on les déduit de l'apparence décrite plutôt que de tirer une origine incohérente
     if (!n.v.origine) {
       const hair = n.v.av_cheveux, eyes = n.v.av_yeux, skin = n.v.av_peau;
-      if (skin >= 6) n.v.origine = 'Afro-américaines';
-      else if (hair === 6) n.v.origine = Math.random() < 0.4 ? 'Irlandaises' : 'Européennes';
-      else if (hair === 4 || hair === 5 || eyes === 3 || eyes === 4) n.v.origine = 'Européennes';
-      else if (skin === 0) n.v.origine = 'Européennes';
+      const fam = skin >= 6 ? 'Afro-américaines' : hair === 6 ? (Math.random() < 0.4 ? 'Irlandaises' : 'Européennes') : (hair === 4 || hair === 5 || eyes === 3 || eyes === 4 || skin === 0) ? 'Européennes' : null;
+      if (fam) { n.v.origine = D.NATIONS[0].v; n.v.herit = fam; }
     }
+    ensureHerit(n);
+    // la phrase parle de travail sans qu'on ait su le classer : le métier reste vide plutôt qu'un métier inventé qui la contredit
+    const unclear = (r.unclear || []).slice();
+    if (unclear.indexOf('metier') >= 0 && !n.v.metier) { n.v.metier = ''; n.locks.metier = true; }
     // les champs compris sont verrouillés le temps de tirer le reste au sort, pour ne jamais les contredire
     Object.keys(r.v).forEach(k => { if (F[k] && F[k].gen && k.indexOf('av_') !== 0) n.locks[k] = true; });
     if (n.rel.length) n.locks.rel = true;
@@ -768,7 +797,10 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     const fin = clean({ v: n.v, rel: n.rel });
     fin.example = false; fin.updated = Date.now();
     if (reuse) { fin.id = cur.id; fin.created = cur.created; store.chars[cur.id] = fin; ui.step = 0; } else addChar(fin);
-    ui.desc = { cid: fin.id, found: found.slice() };
+    // ce qui n'était pas dans la phrase et a été tiré au sort
+    const RND = { genre: 'genre', origine: 'origines', age: 'âge', ville: 'ville', metier: 'métier', affiliation: 'affiliation', situation: 'situation amoureuse', logement: 'logement' };
+    const random = Object.keys(RND).filter(k => !(k in r.v) && hasValue(fin, k) && (!F[k].world || F[k].world === W())).map(k => RND[k]);
+    ui.desc = { cid: fin.id, found: found.slice(), random, unclear };
     renderAll(); scheduleSave();
     if (ui.view === 'creator') $('#line').scrollIntoView({ block: 'start' }); else toCreator();
     toast(found.length ? 'Personnage créé à partir de ta description.' : 'Personnage tiré au sort : rien n\'a été reconnu.');
@@ -991,7 +1023,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       if (i >= 0) a.splice(i, 1);
       else { if (a.length >= d.max) { toast('Maximum ' + d.max + ' choix : retires-en un d\'abord.'); return; } a.push(val); }
       c.v[key] = a;
-    } else c.v[key] = c.v[key] === val ? '' : val;
+    } else { c.v[key] = c.v[key] === val ? '' : val; if (key === 'origine') ensureHerit(c); }
     changed(key);
   }
   function addCustom(key, text) {
@@ -1002,7 +1034,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       const a = (c.v[key] || []).slice();
       if (a.indexOf(text) < 0) { if (a.length >= d.max) { toast('Maximum ' + d.max + ' choix : retires-en un d\'abord.'); return; } a.push(text); }
       c.v[key] = a;
-    } else c.v[key] = text;
+    } else { c.v[key] = text; if (key === 'origine') ensureHerit(c); }
     changed(key);
   }
 

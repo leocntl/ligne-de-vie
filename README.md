@@ -16,7 +16,13 @@ Le choix se fait sur l'accueil et change les propositions (villes, métiers, log
 - **GTA RP · San Andreas** (par défaut) : quartiers de Los Santos (Vinewood, Davis, Mission Row, Vespucci, Rockford Hills…), Blaine County (Sandy Shores, Paleto Bay, Grapeseed…), Vice City, Liberty City, San Fierro et Las Venturas. Métiers de l'univers (LSPD, BCSO, SAHP, EMS, LSFD, Weazel News, Los Santos Customs, pêcheur à Paleto…) et champ **Affiliation** (forces de l'ordre, secours, gangs comme les Ballas, les Families, les Vagos, la Marabunta Grande, le Lost MC, la Mafia, un cartel, Merryweather). Les métiers tirés au sort suivent le quartier : la police de Los Santos ne se retrouve pas à Liberty City.
 - **États-Unis réels** : villes avec leur État (`Austin, TX`), métiers de la vie courante, logements et loisirs américains.
 
-Dans les deux cas, les prénoms et noms sont répartis par origines familiales (européennes, afro-américaines, latino-américaines, asiatiques, irlandaises, italiennes, amérindiennes, arabes ou moyen-orientales, d'Europe de l'Est, cajuns), avec des proportions réalistes, et les traits physiques tirés au sort s'accordent avec l'origine.
+## Origines
+
+Le champ **Origines** propose des pays (Américain, Français, Italien, Mexicain, Coréen, Brésilien, Haïtien, Libanais… une trentaine) et, dans l'univers GTA, des villes du lore : **Los Santos, Vice City, Liberty City, San Fierro, Las Venturas, Blaine County, Sandy Shores, Paleto Bay**. On peut aussi écrire une origine à soi.
+
+- Chaque pays a ses prénoms et ses noms de famille (Pierre Rousseau, Min-ji Kim, João Sousa…). Pour « Américain » et pour une ville, une origine familiale cachée choisit les noms et les traits physiques, avec des proportions réalistes.
+- Une ville d'origine devient le lieu de naissance dans le background, avec l'ambiance de son quartier.
+- Les anciennes fiches (« Latino-américaines », « Européennes »…) sont converties automatiquement en « Américain ».
 
 ## Création de personnage
 
@@ -63,6 +69,7 @@ Le site ne se connecte pas à Claude tout seul : il prépare une demande à part
 | `index.html` | Page, navigation, fenêtres |
 | `style.css` | Styles, thème clair et sombre |
 | `data.js` | Listes de noms, villes, métiers, traits, textes de tirage, univers GTA |
+| `nations.js` | Origines : pays avec leurs prénoms et noms, villes du lore GTA |
 | `ideas.js` | Banque d'idées originales (surnoms, secrets, enfances, manies, anecdotes…) |
 | `photo.js` | Image du personnage : lecture, cadrage et enregistrement |
 | `describe.js` | Analyse de la description libre (mots-clés, synonymes, tournures de phrase) |
@@ -91,17 +98,17 @@ puis ouvre <http://localhost:8765>.
 5. Après une minute environ, le site est en ligne à l'adresse `https://<ton-compte>.github.io/ligne-de-vie/`.
 
 Les liens de partage utilisent l'adresse de la page : ils fonctionnent donc une fois le site publié.
-Quand tu modifies les fichiers, change le numéro dans `?v=24` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
+Quand tu modifies les fichiers, change le numéro dans `?v=29` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
 
 ## Description libre : ce qu'elle comprend
 
 L'analyse n'est pas une IA : elle repère des mots-clés et des tournures de phrase, en français, dans le navigateur. Elle reconnaît notamment :
-- **Identité** : prénom et nom (« elle s'appelle Emma Carter »), genre, âge (« 34 ans », « une quarantaine »), origines, quartier ou ville (« à Davis », « à Paleto », « à Los Santos », « au Texas »), métier et synonymes, affiliation (LSPD, EMS, Ballas, Lost MC…), situation, logement.
+- **Identité** : prénom et nom (« elle s'appelle Emma Carter »), genre, âge (« 34 ans », « une quarantaine »), origines (« un Français », « d'origine italienne », « née au Mexique », « né à Vice City », « latino »), quartier ou ville (« à Davis », « à Paleto », « à Los Santos », « au Texas »), métier et synonymes (« enchaîne les petits boulots », « intérimaire », « streamer »…), affiliation (LSPD, EMS, Ballas, Lost MC…), situation, logement.
 - **Apparence** : couleur et coupe des cheveux, yeux, teint, barbe, lunettes, taches de rousseur, taille (`1m90`, `5'10"`), corpulence, style, signe distinctif (cicatrice, tatouage).
 - **Caractère** : traits, qualités, défauts, peurs, loisirs, ce que le personnage veut, un secret, un événement marquant.
 - **Relations** : « sa sœur Lily », « son meilleur ami Jake ».
 
-Les noms de quartiers (Davis, Burton…) ne sont reconnus qu'après une préposition (« à Davis »), pour ne pas confondre « Emma Davis » avec un lieu. Une description qui ne parle pas de gang ne met jamais le personnage dans un gang. Ce qui n'est pas reconnu n'est pas perdu : toute la phrase est copiée dans « Notes libres ». Pour enrichir le vocabulaire, il suffit d'ajouter des mots dans `describe.js`.
+Les noms de quartiers (Davis, Burton…) ne sont reconnus qu'après une préposition (« à Davis »), pour ne pas confondre « Emma Davis » avec un lieu. Une description qui ne parle pas de gang ne met jamais le personnage dans un gang. Quand plusieurs métiers sont cités, le premier l'emporte, et un métier lié à un lieu (la police de Los Santos) n'est gardé que s'il va avec le lieu du personnage. Si la phrase parle de travail sans qu'on sache le classer, le métier reste vide au lieu d'être inventé, et le site le dit. Il indique aussi ce qui a été tiré au hasard. Ce qui n'est pas reconnu n'est pas perdu : toute la phrase est copiée dans « Notes libres ». Pour enrichir le vocabulaire, il suffit d'ajouter des mots dans `describe.js`.
 
 ## Limites actuelles
 
