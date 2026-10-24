@@ -416,6 +416,8 @@
     if (typeof rv.herit === 'string' && D.ORIGINES.some(o => o.label === rv.herit)) c.v.herit = rv.herit;
     if (c.v.origine && D.legacyOrigin(c.v.origine)) { c.v.herit = c.v.origine; c.v.origine = D.NATIONS[0].v; }
     ensureHerit(c);
+    // les champs qui viennent de la description de départ (le reste a été complété au hasard)
+    c.described = Array.isArray(raw && raw.described) ? raw.described.filter(k => typeof k === 'string' && k in F).slice(0, 40) : [];
     const rb = raw && raw.bg;
     if (rb && typeof rb === 'object') {
       const t = rb.t && typeof rb.t === 'object' ? rb.t : {};
@@ -550,21 +552,17 @@
     const name = d('prenom'), job = lc(d('metier'));
     if (!name && !job && !v.age) return { text: '', tags: [] };
     const oi = D.originInfo(v.origine), org = d('origine');
-    const origin = !org ? '' : oi.kind === 'city' ? ', originaire de ' + org : oi.kind === 'nation' && !/^Américain/.test(v.origine) ? ", d'origine " + lc(disp(v.origine, 'f')) : oi.kind === 'other' ? ", d'origine " + lc(org) : '';
+    // l'origine n'est dite que si elle vient de la description (ou si la fiche a été remplie à la main)
+    const knownOrigin = !(c.described || []).length || c.described.indexOf('origine') >= 0;
+    const origin = !org || !knownOrigin || (v.ville && String(v.ville).indexOf(org) >= 0) ? '' : oi.kind === 'city' ? ', originaire de ' + org : oi.kind === 'nation' && !/^Américain/.test(v.origine) ? ", d'origine " + lc(disp(v.origine, 'f')) : oi.kind === 'other' ? ", d'origine " + lc(org) : '';
     const cityShort = D.cityName ? D.cityName(v.ville) : v.ville;
     const where = v.ville && !(job && job.indexOf(cityShort) >= 0) ? ' à ' + v.ville : '';
-    const s1 = [(name || 'Ce personnage') + (v.surnom ? ' « ' + v.surnom + ' »' : ''), v.age ? v.age + ' ans' : '', job].filter(Boolean).join(', ') + where + origin + '.';
-    const past = oneSentence(v.enfance || v.parcours, 150);
-    const traits = (v.traits || []).slice(0, 3).map(x => lc(disp(x, f)));
-    let drive = '';
-    const mo = String(v.motivation || '').replace(/\s+/g, ' ').trim().replace(/[.\s]*$/, '');
-    if (mo) drive = /^(?:se |s')|^[A-ZÉÈÀ][a-zéèêîôûàç]+(?:er|ir|re|oir)(?=\s|$)/.test(mo) && !/^(?:rêve|veut|cherche|espère|souhaite|vit|reste|garde|part)\b/i.test(mo) ? 'veut ' + lc(mo) : lc(mo);
-    let s3 = '';
-    if (traits.length && drive) s3 = cap(joinList(traits)) + ', ' + il + ' ' + drive + '.';
-    else if (traits.length) s3 = cap(il) + ' est ' + joinList(traits) + '.';
-    else if (drive) s3 = cap(il) + ' ' + drive + '.';
-    const tag = (k, tone, arr) => (arr && arr[0] ? { k, tone, v: disp(arr[0], f) } : null);
-    return { text: [s1, past, s3].filter(Boolean).join(' '), tags: [tag('Atout', 'qualite', v.qualites), tag('Faille', 'defaut', v.defauts), tag('Peur', 'peur', v.peurs)].filter(Boolean) };
+    // une seule phrase : qui est le personnage, où il vit, d'où il vient, et ses traits de caractère
+    // pour un personnage décrit, on ne retient que les traits et qualités tirés de la description, pas ceux complétés au hasard
+    const dsc = c.described || [], mine = ['traits', 'qualites'].filter(k => dsc.indexOf(k) >= 0).reduce((a, k) => a.concat(v[k] || []), []);
+    const traits = (mine.length ? mine : v.traits || []).slice(0, 3).map(x => lc(disp(x, f)));
+    const head = [name || 'Ce personnage', v.age ? v.age + ' ans' : '', job].filter(Boolean).join(', ');
+    return { text: head + where + origin + (traits.length ? ' : ' + joinList(traits) : '') + '.', tags: [] };
   }
 
   /* ---------- la fiche, découpée en sections lisibles ---------- */
@@ -915,7 +913,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     Object.keys(r.v).forEach(k => { if (k.indexOf('av_') === 0) n.v[k] = r.v[k]; });
     n.v.notes = ('Description de départ : ' + text).slice(0, 1500);
     // dernière vérification : longueurs et types de chaque champ, comme pour un import
-    const fin = clean({ v: n.v, rel: n.rel });
+    const fin = clean({ v: n.v, rel: n.rel, described: Object.keys(r.v) });
     fin.example = false; fin.updated = Date.now();
     if (reuse) { fin.id = cur.id; fin.created = cur.created; store.chars[cur.id] = fin; ui.step = 0; } else addChar(fin);
     // ce qui n'était pas dans la phrase et a été tiré au sort
