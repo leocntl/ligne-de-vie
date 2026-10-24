@@ -3,6 +3,13 @@
 Créateur de personnage et rédacteur de background pour jeu de rôle contemporain et réaliste, en français, dans l'univers de GTA (Los Santos, Blaine County, Vice City, Liberty City) ou aux États-Unis.
 Site statique : du HTML, du CSS et du JavaScript, sans outil de build ni serveur. Projet de fan, sans lien avec Rockstar Games.
 
+## Direction artistique
+
+Un style « verre liquide nacré » : fond clair aux reflets irisés (lavande, ciel, rose, pêche) et plis de verre dessinés en SVG, surfaces en verre dépoli, traits très fins, typographie Manrope légère, et une seule signature, le dégradé irisé, réservé aux choix actifs, à l'étape en cours, au focus et à la carte de personnage. Aucune option n'a été retirée.
+
+- **Thème** : clair par défaut. Le bouton rond du haut passe de clair à sombre, puis à automatique (celui de l'appareil), et se souvient du choix.
+- Tout le style est dans `style.css`, avec un seul jeu de variables en haut de fichier (`light-dark()`) : changer une couleur change les deux thèmes.
+
 ## Trois pages
 
 - **Accueil** (`#`) : deux carrés au centre, **Création de personnage** et **Background**. Dessous, un choix d'univers et quelques idées de personnages (un clic crée la fiche correspondante).
@@ -71,6 +78,7 @@ Le site ne se connecte pas à Claude tout seul : il prépare une demande à part
 |---|---|
 | `index.html` | Page, navigation, fenêtres |
 | `style.css` | Styles, thème clair et sombre |
+| `bg-light.svg`, `bg-dark.svg` | Plis de verre irisés du fond, un par thème |
 | `data.js` | Listes de noms, villes, métiers, traits, textes de tirage, univers GTA |
 | `nations.js` | Origines : pays avec leurs prénoms et noms, villes du lore GTA |
 | `ideas.js` | Banque d'idées originales (surnoms, secrets, enfances, manies, anecdotes…) |
@@ -101,7 +109,7 @@ puis ouvre <http://localhost:8765>.
 5. Après une minute environ, le site est en ligne à l'adresse `https://<ton-compte>.github.io/ligne-de-vie/`.
 
 Les liens de partage utilisent l'adresse de la page : ils fonctionnent donc une fois le site publié.
-Quand tu modifies les fichiers, change le numéro dans `?v=31` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
+Quand tu modifies les fichiers, change le numéro dans `?v=41` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
 
 ## Description libre : ce qu'elle comprend
 

@@ -37,6 +37,9 @@
       trash: s('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
       plus: s('<path d="M12 5v14M5 12h14"/>'),
       minus: s('<path d="M5 12h14"/>'),
+      sun: s('<circle cx="12" cy="12" r="4"/><path d="M12 2.500v2.500M12 19v2.500M2.500 12H5M19 12h2.500M5.200 5.200l1.800 1.800M17 17l1.800 1.800M5.200 18.800 7 17M17 7l1.800-1.800"/>'),
+      moon: s('<path d="M20 14.500A8.500 8.500 0 0 1 9.500 4a8.500 8.500 0 1 0 10.500 10.500z"/>'),
+      auto: s('<circle cx="12" cy="12" r="8.500"/><path d="M12 3.500v17a8.500 8.500 0 0 0 0-17z" fill="currentColor"/>'),
       bulb: s('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.500 10.900c.6.500 1 1.200 1 2.100h5c0-.9.4-1.600 1-2.100A6 6 0 0 0 12 3z"/>'),
       copy: s('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
       left: s('<path d="M15 6l-6 6 6 6"/>'),
@@ -912,6 +915,22 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     $('#line').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }
   let toastTimer = 0;
+  // thème : clair (par défaut), sombre, ou celui de l'appareil
+  const THEMES = [['light', 'clair', 'sun'], ['dark', 'sombre', 'moon'], ['auto', 'automatique', 'auto']];
+  function renderTheme() {
+    const cur = document.documentElement.dataset.theme || 'light', i = Math.max(0, THEMES.findIndex(t => t[0] === cur)), nx = THEMES[(i + 1) % THEMES.length];
+    const b = $('#themeBtn');
+    if (!b) return;
+    b.innerHTML = ICON[THEMES[i][2]];
+    b.setAttribute('aria-label', 'Thème ' + THEMES[i][1] + ' : passer en ' + nx[1]);
+    b.title = 'Thème ' + THEMES[i][1] + ' (cliquer pour : ' + nx[1] + ')';
+  }
+  function cycleTheme() {
+    const cur = document.documentElement.dataset.theme || 'light', i = Math.max(0, THEMES.findIndex(t => t[0] === cur)), nx = THEMES[(i + 1) % THEMES.length][0];
+    document.documentElement.dataset.theme = nx;
+    try { localStorage.setItem('ligne-de-vie.theme', nx); } catch (e) { /* sans stockage, le thème dure le temps de la visite */ }
+    renderTheme();
+  }
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg; t.classList.add('show');
@@ -1145,6 +1164,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
         c.v[k] = (c.v[k] ? c.v[k] + '\n\n' : '') + txt;
         $('#creply').value = ''; changed(k); toast('Texte inséré dans « ' + F[k].label + ' ».'); break;
       }
+      case 'theme': cycleTheme(); break;
       case 'skip': e.preventDefault(); $('#main').focus(); break;
       case 'world':
         if (W() !== b.dataset.w) { setWorld(b.dataset.w); refreshExample(); scheduleSave(); }
@@ -1487,6 +1507,7 @@ ${bgHintsHTML(c)}${body}</div>
       if (storageOK) saveNow();
     }
     setStatus(storageOK ? 'saved' : 'nostore');
+    renderTheme();
     route();
   }
   init();

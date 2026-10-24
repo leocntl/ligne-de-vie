@@ -6,11 +6,13 @@
 <title>Ligne de vie</title>
 <meta name="description" content="Créateur de personnage et rédacteur de background pour jeu de rôle contemporain, dans l'univers de GTA ou aux États-Unis. Tout reste dans ton navigateur.">
 <meta name="color-scheme" content="light dark">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 16h24' stroke='%232563EB' stroke-width='4'/%3E%3Ccircle cx='9' cy='16' r='5' fill='white' stroke='%23E8730C' stroke-width='3'/%3E%3Ccircle cx='23' cy='16' r='5' fill='white' stroke='%23C2308A' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23b7a6ff'/%3E%3Cstop offset='.45' stop-color='%238fd1f6'/%3E%3Cstop offset='.8' stop-color='%23f7bfe1'/%3E%3Cstop offset='1' stop-color='%23ffd8b4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='url(%23g)'/%3E%3Cpath d='M7 19c4-6 9-8 18-5' stroke='white' stroke-opacity='.85' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#f5f3fa">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=31">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>try { document.documentElement.dataset.theme = localStorage.getItem('ligne-de-vie.theme') || 'light'; } catch (e) { document.documentElement.dataset.theme = 'light'; }</script>
+<link rel="stylesheet" href="style.css?v=41">
 </head>
 <body data-view="home">
 <a class="skip" href="#main" data-act="skip">Aller au contenu</a>
@@ -18,7 +20,7 @@
 <div class="app">
   <header class="top">
     <a class="brand" href="#" aria-label="Ligne de vie, accueil">
-      <svg viewBox="0 0 64 24" width="52" height="20" aria-hidden="true"><path d="M4 12h56" stroke="var(--l1)" stroke-width="5" stroke-linecap="round"/><circle cx="12" cy="12" r="6" fill="var(--surface)" stroke="var(--l2)" stroke-width="4"/><circle cx="32" cy="12" r="6" fill="var(--surface)" stroke="var(--l3)" stroke-width="4"/><circle cx="52" cy="12" r="6" fill="var(--surface)" stroke="var(--l4)" stroke-width="4"/></svg>
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><defs><linearGradient id="orb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b7a6ff"/><stop offset=".45" stop-color="#8fd1f6"/><stop offset=".8" stop-color="#f7bfe1"/><stop offset="1" stop-color="#ffd8b4"/></linearGradient></defs><circle cx="16" cy="16" r="14" fill="url(#orb)"/><path d="M7 19c4-6 9-8 18-5" stroke="#fff" stroke-opacity=".85" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
       <span class="brand-name">Ligne de vie</span>
       <span class="brand-sub">Créateur de personnage RP</span>
     </a>
@@ -29,6 +31,7 @@
     <div class="top-actions">
       <span class="status" id="status" role="status" data-only="creator bg"></span>
       <button type="button" class="btn" data-act="genAll" data-only="creator"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/></svg><span class="t-long">Personnage au hasard</span><span class="t-short">Au hasard</span></button>
+      <button type="button" class="btn icon" data-act="theme" id="themeBtn"></button>
       <button type="button" class="btn" data-act="openChars"><span class="t-long">Mes personnages</span><span class="t-short">Personnages</span><span class="badge" id="charCount">1</span></button>
       <button type="button" class="btn primary" data-act="newBlank" data-only="creator"><span>+ Nouveau</span></button>
     </div>
@@ -75,12 +78,12 @@
   </div>
 </dialog>
 
-<script src="data.js?v=31"></script>
-<script src="nations.js?v=31"></script>
-<script src="ideas.js?v=31"></script>
-<script src="photo.js?v=31"></script>
-<script src="describe.js?v=31"></script>
-<script src="background.js?v=31"></script>
-<script src="app.js?v=31"></script>
+<script src="data.js?v=41"></script>
+<script src="nations.js?v=41"></script>
+<script src="ideas.js?v=41"></script>
+<script src="photo.js?v=41"></script>
+<script src="describe.js?v=41"></script>
+<script src="background.js?v=41"></script>
+<script src="app.js?v=41"></script>
 </body>
 </html>
