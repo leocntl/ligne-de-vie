@@ -18,7 +18,7 @@ window.LDV = {
       f: ["Maria", "Sofia", "Isabella", "Camila", "Valeria", "Daniela", "Gabriela", "Ana", "Lucia", "Carmen", "Marisol", "Ximena", "Alejandra", "Natalia"],
       m: ["Carlos", "Miguel", "Luis", "Diego", "Javier", "Mateo", "Alejandro", "Jose", "Juan", "Eduardo", "Rafael", "Angel", "Adrian", "Ricardo"],
       noms: ["Garcia", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Perez", "Sanchez", "Ramirez", "Torres", "Flores", "Rivera", "Gomez", "Diaz", "Reyes", "Morales", "Cruz", "Ortiz", "Gutierrez", "Castillo", "Vargas", "Mendoza"] },
-    { label: "Asiatiques", poids: 1.3,
+    { label: "Asiatiques", poids: 0.7,
       f: ["Grace", "Michelle", "Jenny", "Kelly", "Priya", "Mei", "Sophia", "Linh", "Alisha", "Christine", "Amy", "Tina", "Anjali", "Mia"],
       m: ["Kevin", "Andrew", "Brian", "David", "Eric", "Raj", "Vikram", "Daniel", "Jason", "Anthony", "Minh", "Henry", "Justin", "Arjun"],
       noms: ["Nguyen", "Chen", "Patel", "Kim", "Lee", "Wang", "Tran", "Singh", "Park", "Nakamura", "Wong", "Liu", "Shah", "Yang", "Le", "Cho", "Huang", "Lin", "Gupta", "Sharma", "Tanaka", "Reddy"] },
@@ -214,7 +214,7 @@ window.LDV = {
     "Sandy Shores (Blaine County)", "Paleto Bay (Blaine County)", "Grapeseed (Blaine County)", "Harmony (Blaine County)", "Mount Chiliad (Blaine County)",
     "Ocean Beach (Vice City)", "Little Havana (Vice City)", "Downtown (Vice City)", "Vice Point (Vice City)", "Washington Beach (Vice City)", "Little Haiti (Vice City)",
     "Broker (Liberty City)", "Algonquin (Liberty City)", "Bohan (Liberty City)", "Dukes (Liberty City)", "Alderney (Liberty City)", "Hove Beach (Liberty City)",
-    "San Fierro", "Las Venturas"
+    "San Fierro", "Las Venturas", "Cayo Perico"
   ];
   // noms de villes entières reconnus dans une description (clé normalisée -> quartiers possibles)
   D.VILLES_GROUPES = {

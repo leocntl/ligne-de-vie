@@ -102,7 +102,9 @@
   const needsHerit = o => D.originInfo(o).kind !== 'nation';
   function ensureHerit(c) {
     if (!needsHerit(c.v.origine)) { delete c.v.herit; return; }
-    if (!D.ORIGINES.some(o => o.label === c.v.herit)) c.v.herit = wpick(D.ORIGINES.map(o => [o.label, o.poids || 1]));
+    // l'origine familiale reste si elle est possible pour cette origine (Cayo Perico : seulement latino), sinon on en tire une
+    const w = D.heritWeights(c.v.origine, c.v.ville), cur = w.find(x => x[0] === c.v.herit);
+    if (!cur || cur[1] <= 0) c.v.herit = wpick(w);
   }
   const pool = c => {
     const i = D.originInfo(c.v.origine);
@@ -251,8 +253,8 @@
     surnom: { t: 'text', label: 'Surnom', ph: 'Em', max: 30, w: 'half', gen: (c, bulk) => { if (bulk && Math.random() > 0.35) return ''; const nk = nicknameIdeas(c); return nk.mine.length && Math.random() < 0.6 ? pick(nk.mine) : pick(nk.pool); } },
     age: { t: 'number', label: 'Âge', min: 14, max: 100, unit: 'ans', w: 'half', gen: () => { const r = Math.random(); return r < 0.25 ? rint(18, 25) : r < 0.7 ? rint(26, 40) : r < 0.92 ? rint(41, 60) : rint(61, 82); } },
     genre: { t: 'chips', label: 'Genre', opts: D.GENRES, w: 'half', gen: () => pick(D.GENRES) },
-    origine: { t: 'chips', label: 'Origines', opts: () => D.originList(W() === 'gta'), custom: true, gen: () => wpick(D.originWeights(W() === 'gta')) },
-    ville: { t: 'text', label: 'Ville ou quartier', ph: () => (W() === 'gta' ? 'Davis (Los Santos)' : 'Austin, TX'), list: 'villes', max: 50, w: 'half', gen: c => { const i = D.originInfo(c.v.origine); return i.kind === 'city' && Math.random() < 0.5 ? pick(i.city.lieux) : pick(D.VILLES); } },
+    origine: { t: 'chips', label: 'Origines', opts: () => D.originList(W() === 'gta'), custom: true, gen: c => wpick(D.originWeights(W() === 'gta', c.v.ville)) },
+    ville: { t: 'text', label: 'Ville ou quartier', ph: () => (W() === 'gta' ? 'Davis (Los Santos)' : 'Austin, TX'), list: 'villes', max: 50, w: 'half', gen: () => pick(D.VILLES) },
     metier: {
       t: 'text', label: 'Métier ou occupation', ph: 'Infirmière', list: 'metiers', max: 70, w: 'half',
       gen: c => {
@@ -302,15 +304,15 @@
     av_pilo: { t: 'chips', label: 'Pilosité', opts: A.PILOSITE },
     av_lunettes: { t: 'chips', label: 'Lunettes', opts: A.LUNETTES },
     av_taches: { t: 'chips', label: 'Taches de rousseur', opts: A.TACHES },
-    style: { t: 'multi', label: 'Style vestimentaire', opts: D.STYLES, max: 3, custom: true, gen: () => pickN(D.STYLES, rint(1, 2)) },
+    style: { t: 'multi', label: 'Style vestimentaire', opts: D.STYLES, max: 6, custom: true, gen: () => pickN(D.STYLES, rint(1, 3)) },
     signes: { t: 'area', label: 'Signes distinctifs', rows: 2, ph: 'Cicatrice, tatouage, piercing, détail qu\'on remarque…', gen: (c, bulk) => (!bulk || Math.random() < 0.65 ? fill(pick(D.SIGNES.concat(ipool('signes'))), c) : '') },
     attitude: { t: 'area', label: 'Voix et attitude', rows: 2, ph: 'Comment il ou elle parle, se tient, occupe l\'espace…', gen: c => fill(pick(D.ATTITUDES.concat(ipool('attitude'))), c) },
 
-    traits: { t: 'multi', label: 'Traits de caractère', opts: D.TRAITS, max: 5, custom: true, gen: () => pickN(D.TRAITS, rint(3, 4)) },
-    qualites: { t: 'multi', label: 'Qualités', opts: D.QUALITES, max: 3, custom: true, gen: () => pickN(D.QUALITES, rint(2, 3)) },
-    defauts: { t: 'multi', label: 'Défauts', opts: D.DEFAUTS, max: 3, custom: true, gen: () => pickN(D.DEFAUTS, rint(2, 3)) },
-    peurs: { t: 'multi', label: 'Peurs', opts: D.PEURS, max: 3, custom: true, gen: () => pickN(D.PEURS, rint(1, 2)) },
-    loisirs: { t: 'multi', label: 'Loisirs et passions', opts: loisirList, max: 5, custom: true, gen: () => pickN(loisirList(), rint(2, 4)) },
+    traits: { t: 'multi', label: 'Traits de caractère', opts: D.TRAITS, max: 6, custom: true, gen: () => pickN(D.TRAITS, rint(3, 5)) },
+    qualites: { t: 'multi', label: 'Qualités', opts: D.QUALITES, max: 6, custom: true, gen: () => pickN(D.QUALITES, rint(2, 4)) },
+    defauts: { t: 'multi', label: 'Défauts', opts: D.DEFAUTS, max: 6, custom: true, gen: () => pickN(D.DEFAUTS, rint(2, 4)) },
+    peurs: { t: 'multi', label: 'Peurs', opts: D.PEURS, max: 6, custom: true, gen: () => pickN(D.PEURS, rint(1, 3)) },
+    loisirs: { t: 'multi', label: 'Loisirs et passions', opts: loisirList, max: 6, custom: true, gen: () => pickN(loisirList(), rint(2, 5)) },
     motivation: { t: 'area', label: 'Ce qui le motive', rows: 2, ph: 'Un but, un besoin, une promesse…', gen: c => fill(pick(D.MOTIVATIONS.concat(ipool('motivation'))), c) },
     manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => pickN(D.MANIES.concat(ipool('manies')), 2).map(s => fill(s, c)).join(' ') },
     secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(pick(D.SECRETS.concat(ipool('secret'))), c) },
@@ -357,7 +359,7 @@
     { id: 'fiche', short: 'Fiche', title: 'Fiche', color: '--l6', lede: 'Relis, copie, partage.', groups: [] }
   ];
   STEPS.forEach(st => { st.fields = st.groups.reduce((acc, g) => acc.concat(g.keys), []); });
-  const ORDER = ['genre', 'origine', 'prenom', 'nom', 'age', 'ville', 'metier', 'affiliation', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel', 'surnom'];
+  const ORDER = ['genre', 'ville', 'origine', 'prenom', 'nom', 'age', 'metier', 'affiliation', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel', 'surnom'];
 
   /* ---------- modèle et stockage ---------- */
   // background : parties affichées (on), textes par partie (t). Les textes des parties masquées sont gardés.

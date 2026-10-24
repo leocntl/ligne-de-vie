@@ -359,6 +359,7 @@ window.LDV.IDEES = {
     role_verbes: ["est policier", "lui doit un service", "ne lui parle plus depuis des années", "habite à l'autre bout de la ville", "est son seul confident", "travaille dans le même quartier"]
   },
   ex_gta: [
+    ["Parents de Cayo Perico", "Un homme de 30 ans né à Los Santos, dont les parents sont d'origine de Cayo Perico, calme et loyal, qui enchaîne les petits boulots à Davis"],
     ["Mécanicienne à La Mesa", "Une mécanicienne de 33 ans à La Mesa, rousse, franche et débrouillarde, avec un tatouage sur le poignet. Elle veut racheter le garage de son père"],
     ["Chauffeur de taxi de nuit", "Un chauffeur de taxi de 47 ans à Downtown Los Santos, taciturne et observateur, divorcé, qui connaît chaque secret de la ville. Il cache une dette"],
     ["Serveuse à Strawberry", "Une serveuse de 24 ans à Strawberry, brune, sarcastique et ambitieuse, étudiante en cinéma le jour. Elle rêve de décrocher un rôle à Vinewood"],

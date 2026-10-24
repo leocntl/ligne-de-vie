@@ -227,23 +227,43 @@ window.LDV_DESCRIBE = (function () {
     // un pays (« un Français », « d'origine italienne », « née au Mexique »), « américain », une ville de GTA (« né à Vice City »)
     // ou une origine familiale (« latino », « noir »...) qui reste cachée et choisit les noms et le teint
     const NAT = (D.NATIONS || []).filter(n => n.adj);
+    const CITIES = D.ORIGINES_VILLES || [];
     const DET = "(?:un|une|jeune|vieux|vieille|ancien|ancienne|homme|femme|garcon|fille|mec|type|gars|dame|etudiant|etudiante|couple)";
     const GAP = "(?:(?!parle|parlant|apprend|cours|langue|accent)[a-z'-]+\\s+){0,3}";
-    const CUE = "(?:d'origine|origine|originaire|nationalite|ascendance|expatrie|expatriee|immigre|immigree|natif|native|vient|venu|venue|arrive|arrivee|ne|nee)\\s+(?:de la |de l'|de |du |d'|des |en |au |aux )?";
+    const PREP = "(?:de la |de l'|de |du |d'|des |en |au |aux |la |le |l')?";
+    const CUE = "(?:d'origine|origine|originaire|nationalite|ascendance|expatrie|expatriee|immigre|immigree|natif|native|vient|venu|venue|arrive|arrivee|ne|nee|est|etait|sont)\\s+" + PREP;
+    // l'origine de la famille (« ses parents sont d'origine de Cayo Perico », « famille venue de Cuba ») passe avant tout le reste
+    const FAM = "(?:parents?|famille|grands-parents|grand-parents|ancetres|racines|pere et mere|mere et pere|pere|mere)\\s+(?:(?:sont|est|etaient|etait|viennent|vient|venaient|venait)\\s+)*(?:d'origine|originaires?|venus?|venues?|natifs?|issus?|issues?|de|du|d')\\s*" + PREP;
+    const cityRe = c => new RegExp("(?<![a-z])(?:(?:d'origine|origine|originaire|natif|native|ne|nee|vient|venu|venue|grandi|grandit|elevee|eleve)\\s+(?:de |d'|du |a |au |dans |en )?|(?:est|etait)\\s+(?:de |du |d'))(?:la |le |l')?(?:" + c.key + ")(?![a-z])");
+    const blankAt = (txt, m) => txt.slice(0, m.index) + ' '.repeat(m[0].length) + txt.slice(m.index + m[0].length);
     const tn = t.replace(/indiens?(?:nes?)? d'amerique/g, 'amerindien');
+    let famNat = null, famCity = null;
+    for (const n of NAT) {
+      if (n.mix) continue;
+      if (new RegExp('(?<![a-z])' + FAM + '(?:' + n.adj + (n.cue ? '|' + n.cue : '') + ')(?![a-z])').test(tn)) { famNat = n; break; }
+    }
+    if (!famNat) {
+      for (const c of CITIES) {
+        const fm = new RegExp('(?<![a-z])' + FAM + '(?:' + c.key + ')(?![a-z])').exec(t);
+        if (fm) { famCity = c; t = blankAt(t, fm); break; }
+      }
+    }
     let nat = null;
     for (const n of NAT) {
       const a = '(?:' + n.adj + ')', c = n.cue ? '(?:' + a + '|' + n.cue + ')' : a;
       if (new RegExp('(?:^\\s*' + a + '|(?<![a-z])' + DET + '\\s+' + GAP + a + '|(?<![a-z])' + CUE + c + ')(?![a-z])').test(tn)) { nat = n; break; }
     }
-    let cityO = null;
-    for (const c of D.ORIGINES_VILLES || []) {
-      const cm = new RegExp("(?<![a-z])(?:originaire|natif|native|ne|nee|vient|venu|venue|grandi|grandit|elevee|eleve)\\s+(?:de |d'|du |a |au |dans |en )?(?:la |le |l')?(?:" + c.key + ")(?![a-z])").exec(t);
-      if (cm) { cityO = c; t = t.slice(0, cm.index) + ' '.repeat(cm[0].length) + t.slice(cm.index + cm[0].length); break; }
+    // la ville où l'on est né ou d'où l'on vient (« né à Vice City ») : elle ne compte comme origine que si rien de plus précis n'est dit
+    let cityO = null, cityM = null;
+    if (!famNat && !famCity) {
+      for (const c of CITIES) { const cm = cityRe(c).exec(t); if (cm) { cityO = c; cityM = cm; break; } }
+      if (cityO && !(nat && !nat.mix)) t = blankAt(t, cityM);
     }
     let herit = null;
     for (const o of ORIGINS) { if (o[1].test(t)) { herit = o[0]; break; } }
-    if (nat && !nat.mix) v.origine = nat.v;
+    if (famNat) v.origine = famNat.v;
+    else if (famCity) { v.origine = famCity.v; if (herit) v.herit = herit; }
+    else if (nat && !nat.mix) v.origine = nat.v;
     else if (cityO) { v.origine = cityO.v; if (herit) v.herit = herit; }
     else if (nat) { v.origine = nat.v; if (herit) v.herit = herit; }
     else if (herit) { v.origine = D.NATIONS[0].v; v.herit = herit; }
@@ -276,6 +296,8 @@ window.LDV_DESCRIBE = (function () {
       if (st) v.ville = pick(STATES[st]);
       else if (/petite ville|campagne|village|bled|ville de province/.test(t)) v.ville = pick(SMALL_TOWNS);
     }
+    // « né à Vice City » sans autre lieu de vie : on vit dans un quartier de cette ville
+    if (!v.ville && (cityO || famCity)) v.ville = pick((cityO || famCity).lieux);
     if (v.ville) note('Ville : ' + v.ville);
 
     /* métier */
@@ -420,7 +442,7 @@ window.LDV_DESCRIBE = (function () {
     ext(D.STYLES, 'style').forEach(s => { if (hasW(work, s) || (s === 'Sportif' && false)) styles.push(s); });
     const SYN_STYLE = [[/cowboy|cow-boy|bottes de cowboy|chapeau texan/, 'Western'], [/punk|gothique|goth(?![a-z])|rock|metalleux|emo(?![a-z])|skater|piercing/, 'Alternatif'], [/elegant|elegante|chic|bien habille|classe(?![a-z])/, 'Soigné'], [/costume|cravate|tailleur/, 'Classique'], [/hipster|retro|annees 80|annees 70/, 'Vintage'], [/bleu de travail|ouvrier|salopette|bottes de chantier/, 'Workwear'], [/sweat a capuche|hoodie|baskets|casquette/, 'Streetwear'], [/jean et t-shirt|jean et tee|simple/, 'Décontracté'], [/survetement|jogging|maillot/, 'Tenue de sport d\'équipe']];
     SYN_STYLE.forEach(s => { if (wb(s[0]).test(work) && styles.indexOf(s[1]) < 0) styles.push(s[1]); });
-    if (styles.length) { v.style = styles.slice(0, 3); note('Style : ' + v.style.join(', ').toLowerCase()); }
+    if (styles.length) { v.style = styles.slice(0, 6); note('Style : ' + v.style.join(', ').toLowerCase()); }
 
     /* signes distinctifs */
     const sg = work.match(/(cicatrice|tatouage|piercing|grain de beaute|marque de naissance|brulure|boiterie|tache de vin)/);
@@ -435,7 +457,7 @@ window.LDV_DESCRIBE = (function () {
 
     /* caractère : traits, qualités, défauts */
     const lists = { traits: ext(D.TRAITS, 'traits'), qualites: ext(D.QUALITES, 'qualites'), defauts: ext(D.DEFAUTS, 'defauts') };
-    const maxN = { traits: 5, qualites: 3, defauts: 3 };
+    const maxN = { traits: 6, qualites: 6, defauts: 6 };
     const got = { traits: [], qualites: [], defauts: [] };
     const tryAdd = (raw, fv) => {
       for (const key of Object.keys(lists)) {
@@ -470,11 +492,11 @@ window.LDV_DESCRIBE = (function () {
       const hit = ext(D.PEURS, 'peurs').find(r => norm(forms(r)[0].k) === norm(val));
       peurs.push(hit || cap(val));
     }
-    if (peurs.length) v.peurs = peurs.slice(0, 3);
+    if (peurs.length) v.peurs = peurs.slice(0, 6);
     const loisirs = [];
     ext(D.LOISIRS.concat(D.LOISIRS_GTA || []), 'loisirs').forEach(raw => { const k = norm(raw); if (raw !== 'Mode' && wordRe(k, true).test(t)) loisirs.push(raw); });
     Object.keys(SYN_LOISIR).forEach(k => { if (k.length >= 4 && wordRe(norm(k), true).test(t) && loisirs.indexOf(SYN_LOISIR[k]) < 0) loisirs.push(SYN_LOISIR[k]); });
-    if (loisirs.length) { v.loisirs = loisirs.slice(0, 5); note('Loisirs : ' + v.loisirs.join(', ').toLowerCase()); }
+    if (loisirs.length) { v.loisirs = loisirs.slice(0, 6); note('Loisirs : ' + v.loisirs.join(', ').toLowerCase()); }
 
     /* motivation, secret, événement marquant */
     const mo = om.match(/(?:[Vv]eut|[Ss]ouhaite|[Rr]êve (?:de|d')|[Cc]herche à|[Aa]imerait|[Aa]mbitionne de|[Vv]oudrait|[Ss]'efforce de)\s*([^,.;]{4,90})/);

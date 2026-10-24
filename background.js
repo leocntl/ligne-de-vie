@@ -61,7 +61,8 @@ window.LDV_BG = (function () {
     'Alderney': "À Alderney, les usines, les entrepôts et le brouillard du port rythment les journées.",
     'Hove Beach': "À Hove Beach, la promenade et les restaurants russes se mêlent à un vent d'océan qui ne s'arrête jamais.",
     'San Fierro': "À San Fierro, la brume, les collines et les tramways donnent à la ville un air d'un autre temps.",
-    'Las Venturas': "À Las Venturas, la ville ne dort jamais, entre casinos, néons et promesses d'argent facile."
+    'Las Venturas': "À Las Venturas, la ville ne dort jamais, entre casinos, néons et promesses d'argent facile.",
+    'Cayo Perico': "Sur Cayo Perico, l'île vit au rythme des plantations, de la musique et des silences qu'on apprend à ne pas relever."
   };
   // ce que change l'appartenance à un service ou à un groupe (affiliation)
   const AFFIL_TXT = {
@@ -95,6 +96,7 @@ window.LDV_BG = (function () {
     'Las Venturas': "{n} a grandi dans le bruit des casinos de Las Venturas, où l'on apprend très tôt que la chance se pèse.",
     'Blaine County': "{n} vient du Blaine County, de ses routes poussiéreuses, de ses ranchs et de voisins qu'on ne voit qu'une fois par mois.",
     'Sandy Shores': "{n} vient de Sandy Shores, où la chaleur écrase tout et où l'on se méfie des étrangers.",
+    'Cayo Perico': "La famille de {n} vient de Cayo Perico, et l'île, avec ses plantations, sa musique et ses secrets, n'a jamais vraiment quitté la maison.",
     'Paleto Bay': "{n} vient de Paleto Bay, petite ville de pêcheurs et de bûcherons où tout se sait avant la fin de la journée."
   };
 

@@ -22,6 +22,8 @@ Le champ **Origines** propose des pays (Américain, Français, Italien, Mexicain
 
 - Chaque pays a ses prénoms et ses noms de famille (Pierre Rousseau, Min-ji Kim, João Sousa…). Pour « Américain » et pour une ville, une origine familiale cachée choisit les noms et les traits physiques, avec des proportions réalistes.
 - Une ville d'origine devient le lieu de naissance dans le background, avec l'ambiance de son quartier.
+- **Cayo Perico** fait partie des origines (noms latino). La description comprend l'origine de la famille : « né à Los Santos, ses parents sont d'origine de Cayo Perico » donne une origine Cayo Perico et un quartier de Los Santos.
+- Le quartier où l'on vit oriente un peu le tirage de l'origine et des noms (Little Seoul plutôt coréen, Little Havana plutôt cubain, Davis ou Rancho selon leur population), et les noms asiatiques restent rares ailleurs.
 - Les anciennes fiches (« Latino-américaines », « Européennes »…) sont converties automatiquement en « Américain ».
 
 ## Création de personnage
@@ -29,6 +31,7 @@ Le champ **Origines** propose des pays (Américain, Français, Italien, Mexicain
 - **Six étapes** : identité, apparence, personnalité, histoire, relations, fiche finale. Les champs sont regroupés par blocs, les options facultatives sont repliées dans « Plus de détails », les longues listes de choix montrent les 12 premiers puis le reste à la demande, et les boutons Précédent et Suivant restent visibles en bas.
 - **Décrire le personnage en une phrase** : au début de l'étape Identité, une case permet d'écrire ce qu'on imagine (« un policier du LSPD de 38 ans à Mission Row, sérieux et têtu »). Le site crée une fiche qui correspond, complète le reste au hasard sans contredire la phrase, montre ce qu'il a compris et garde la phrase dans les notes.
 - **Tirage au sort** par champ, par étape ou pour tout le personnage, avec un cadenas pour garder un champ.
+- **Traits de caractère, qualités, défauts, peurs, loisirs et styles** : jusqu'à 6 choix chacun, avec le compteur « 4/6 ».
 - **Genre** : Homme ou Femme. Les accords suivent le genre, dans les listes comme dans les textes tirés au sort.
 - **Image du personnage** : chaque personne met l'image de son choix (photo, image générée ailleurs avec une IA, dessin), la cadre dans le portrait en la faisant glisser et en zoomant, puis l'enregistre. Sans image, la fiche affiche une silhouette.
 - **Aperçu en direct** de la fiche, sous forme de carte de personnage fictive.
@@ -98,7 +101,7 @@ puis ouvre <http://localhost:8765>.
 5. Après une minute environ, le site est en ligne à l'adresse `https://<ton-compte>.github.io/ligne-de-vie/`.
 
 Les liens de partage utilisent l'adresse de la page : ils fonctionnent donc une fois le site publié.
-Quand tu modifies les fichiers, change le numéro dans `?v=29` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
+Quand tu modifies les fichiers, change le numéro dans `?v=31` de `index.html` pour que les navigateurs récupèrent la nouvelle version.
 
 ## Description libre : ce qu'elle comprend
 
