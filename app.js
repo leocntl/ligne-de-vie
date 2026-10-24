@@ -615,15 +615,35 @@
   }
   // la demande à copier dans une IA : la fiche, et une seule phrase en retour
   const aiSummaryPrompt = c => 'Voici la fiche d\'un personnage de jeu de rôle. Écris UNE SEULE phrase (35 mots maximum) qui résume ce personnage : qui il est, ce qui le définit, ce qu\'il veut. Utilise uniquement des informations présentes dans la fiche, n\'invente rien et évite les clichés. Réponds par la phrase seule, sans guillemets ni titre.\n\nFiche :\n' + toText(c, false, true, true);
+  function aiSettingsHTML() {
+    const L = window.LDV_AI, cfg = L.load(), P = L.PRESETS, cur = P[cfg.provider] || P.gemini;
+    return `<details class="ai-settings"${cfg.key ? '' : ' open'}><summary>Réglages de l'IA${cfg.key ? ' · clé enregistrée' : ''}</summary>
+<div class="ai-fields">
+<label class="lbl" for="aiProv">Service</label><select class="in" id="aiProv">${Object.keys(P).map(k => `<option value="${k}"${cfg.provider === k ? ' selected' : ''}>${esc(P[k].label)}</option>`).join('')}</select>
+<label class="lbl" for="aiKey">Clé d'API</label><input class="in" id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="${cfg.key ? 'Clé enregistrée (laisse vide pour la garder)' : 'Colle ta clé ici'}">
+<label class="lbl" for="aiModel">Modèle</label><input class="in" id="aiModel" type="text" value="${esc(cfg.model)}" autocomplete="off" spellcheck="false">
+<label class="lbl" for="aiUrl">Adresse</label><input class="in" id="aiUrl" type="text" value="${esc(cfg.url)}" autocomplete="off" spellcheck="false" aria-describedby="aiUrlHint">
+</div>
+<p class="hint" id="aiUrlHint">L'adresse ne sert que pour « Autre service ». ${esc(cur.note)}${cur.help ? ` <a href="${cur.help}" target="_blank" rel="noopener">Obtenir une clé</a>.` : ''}</p>
+<p class="hint">La clé reste dans ce navigateur. Pour écrire la phrase, la fiche (description de départ comprise) est envoyée au service choisi : sur une offre gratuite, ces données peuvent servir à améliorer ses modèles, donc n'y mets rien de personnel.</p>
+<div class="btnrow"><button type="button" class="btn" data-act="aiSave">Enregistrer</button>${cfg.key ? '<button type="button" class="btn ghost" data-act="aiForget">Effacer la clé</button>' : ''}</div></details>`;
+  }
   function summaryHTML(c) {
-    const s = summary(c);
+    const s = summary(c), ready = window.LDV_AI && window.LDV_AI.configured();
     if (!s.text) return '';
-    const ai = `<details class="resume-ai"><summary>${ICON.spark}<span>${s.ai ? 'Changer le résumé écrit par une IA' : 'Faire écrire ce résumé par une IA'}</span></summary>
-<div class="resume-ai-body"><p class="hint">Copie la demande, colle-la dans l'IA de ton choix, puis colle ici sa réponse. La fiche, l'image PNG et le PDF utilisent ensuite cette phrase.</p>
+    const ai = `<details class="resume-ai"${ui.aiOpen ? ' open' : ''}><summary>${ICON.spark}<span>${s.ai ? 'Changer le résumé écrit par une IA' : 'Faire écrire ce résumé par une IA'}</span></summary>
+<div class="resume-ai-body">
+<div class="ai-direct"><h6>Avec une IA gratuite (test)</h6>
+<div class="btnrow"><button type="button" class="btn primary" data-act="aiSumRun"${ready ? '' : ' disabled'}>${ICON.spark} Écrire le résumé avec l'IA</button></div>
+<p class="hint" id="aiStatus" role="status">${ready ? '' : 'Ajoute d\'abord une clé dans les réglages ci-dessous.'}</p>
+${aiSettingsHTML()}</div>
+<div class="ai-manual"><h6>Ou en copiant-collant</h6>
+<p class="hint">Copie la demande, colle-la dans l'IA de ton choix, puis colle ici sa réponse. La fiche, l'image PNG et le PDF utilisent ensuite cette phrase.</p>
 <textarea class="in img-text" id="aiPrompt" rows="5" readonly aria-label="Demande à copier dans l'IA">${esc(aiSummaryPrompt(c))}</textarea>
-<div class="btnrow"><button type="button" class="btn primary" data-act="aiSumCopy">${ICON.copy} Copier la demande</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a><a class="btn" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a></div>
+<div class="btnrow"><button type="button" class="btn" data-act="aiSumCopy">${ICON.copy} Copier la demande</button><a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a><a class="btn" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a></div>
 <textarea class="in" id="aiReply" rows="3" maxlength="400" placeholder="Colle ici la phrase écrite par l'IA" aria-label="Réponse de l'IA"></textarea>
-<div class="btnrow"><button type="button" class="btn" data-act="aiSumUse">Utiliser cette phrase</button>${c.summaryAI ? '<button type="button" class="btn ghost" data-act="aiSumClear">Revenir au résumé automatique</button>' : ''}</div></div></details>`;
+<div class="btnrow"><button type="button" class="btn" data-act="aiSumUse">Utiliser cette phrase</button></div></div>
+${c.summaryAI ? '<div class="btnrow"><button type="button" class="btn ghost" data-act="aiSumClear">Revenir au résumé automatique</button></div>' : ''}</div></details>`;
     return `<section class="resume" aria-label="Résumé du personnage"><span class="resume-k">En bref${s.ai ? ' · écrit par une IA' : ''}</span><p>${esc(s.text)}</p>${s.tags.length ? `<ul class="resume-tags">${s.tags.map(t => `<li class="tone-${t.tone}"><b>${esc(t.k)}</b>${esc(t.v)}</li>`).join('')}</ul>` : ''}${ai}</section>`;
   }
   function cardHTML(c, full) {
@@ -1259,6 +1279,27 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       case 'copyLink': encodeShare(c).then(p => copyText(location.href.split('#')[0] + '#p=' + p, 'Lien de partage copié.')); break;
       case 'imgOpt': ui.img[b.dataset.k] = b.dataset.v; refreshField('imgprompt'); break;
       case 'imgCopy': copyText($('#imgPrompt').value, 'Texte copié : colle-le dans ton IA.'); break;
+      case 'aiSave': {
+        const L = window.LDV_AI, old = L.load(), prov = $('#aiProv').value in L.PRESETS ? $('#aiProv').value : 'gemini', Pr = L.PRESETS[prov];
+        const key = ($('#aiKey').value || '').trim() || old.key;
+        let model = ($('#aiModel').value || '').trim() || Pr.model;
+        if (prov !== old.provider && model === (L.PRESETS[old.provider] || {}).model) model = Pr.model;
+        const url = ($('#aiUrl').value || '').trim() || L.PRESETS.openai.url;
+        if (prov === 'openai' && !/^https:\/\//.test(url)) { toast('L\'adresse doit commencer par https://'); break; }
+        ui.aiOpen = true;
+        toast(L.save({ provider: prov, model, url, key }) ? 'Réglages enregistrés.' : 'Enregistrement impossible dans ce navigateur.');
+        renderPanel(); break;
+      }
+      case 'aiForget': { const L = window.LDV_AI; L.save(Object.assign(L.load(), { key: '' })); ui.aiOpen = true; renderPanel(); toast('Clé effacée de ce navigateur.'); break; }
+      case 'aiSumRun': {
+        if (ui.aiBusy) break;
+        ui.aiOpen = true; ui.aiBusy = true; b.disabled = true;
+        const st = $('#aiStatus'); if (st) st.textContent = 'Écriture en cours…';
+        window.LDV_AI.ask(aiSummaryPrompt(c)).then(t => { c.summaryAI = t; c.updated = Date.now(); renderPanel(); scheduleSave(); toast('Résumé écrit par l\'IA.'); })
+          .catch(e => { const s2 = $('#aiStatus'); if (s2) s2.textContent = e && e.message ? e.message : 'Échec : réessaie.'; })
+          .then(() => { ui.aiBusy = false; const b2 = $('[data-act="aiSumRun"]'); if (b2 && window.LDV_AI.configured()) b2.disabled = false; });
+        break;
+      }
       case 'aiSumCopy': copyText($('#aiPrompt').value, 'Demande copiée : colle-la dans ton IA.'); break;
       case 'aiSumUse': {
         const t = ($('#aiReply').value || '').replace(/^["«\s]+|["»\s]+$/g, '').replace(/\s+/g, ' ').trim();

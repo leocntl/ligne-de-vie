@@ -685,3 +685,14 @@ body[data-view="bg"] [data-only]:not([data-only~="bg"]) { display: none !importa
 .resume-ai summary::-webkit-details-marker { display: none; }
 .resume-ai-body { display: grid; gap: 12px; margin-top: 12px; }
 .resume-ai-body .hint { margin: 0; }
+.resume-ai h6 { margin: 0 0 8px; font: 600 10.5px/1.2 var(--f-mono); letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+.ai-direct, .ai-manual { display: grid; gap: 10px; }
+.ai-manual { padding-top: 14px; border-top: 1px dashed var(--border); }
+.ai-settings { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--chip); }
+.ai-settings summary { cursor: pointer; list-style: none; font: 600 13px/1.2 var(--f-display); }
+.ai-settings summary::-webkit-details-marker { display: none; }
+.ai-settings > :not(summary) { margin-top: 12px; }
+.ai-fields { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px 12px; align-items: center; }
+.ai-fields .in { min-width: 0; }
+.ai-settings .hint { margin-bottom: 0; }
+@media (max-width: 560px) { .ai-fields { grid-template-columns: minmax(0, 1fr); gap: 6px; } }

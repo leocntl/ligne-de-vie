@@ -52,6 +52,7 @@ Le champ **Origines** propose des pays (Américain, Français, Italien, Mexicain
 - **Traits physiques** : coupe, couleur des cheveux, yeux, teint, pilosité, lunettes, taches de rousseur, avec tirage au sort.
 - **Taille** saisie en centimètres, avec la conversion en pieds et pouces.
 - **Plusieurs personnages**, enregistrés automatiquement dans le navigateur (`localStorage`).
+- **Résumé écrit par une IA (facultatif, `ai.js`)** : sous le résumé, soit un bouton qui appelle une IA avec une clé gratuite que la personne colle elle-même (Google Gemini, ou un autre service compatible OpenAI), soit une demande à copier-coller dans Claude, ChatGPT ou Gemini. La clé reste dans le navigateur ; sans clé, rien n'est envoyé.
 - **Exports** : image PNG de la fiche, PDF, texte brut, portrait en `.jpg`.
 - **Lien de partage** : la fiche entière, background compris, est encodée dans l'adresse (`#p=…`), sans serveur. La photo n'y figure pas (trop lourde).
 - **Import** d'un lien ou d'un ancien fichier `.json`.
