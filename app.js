@@ -517,6 +517,38 @@
     return l1 + '\n' + l2;
   }
   const LINE_COLORS = ['--l1', '--l2', '--l3', '--l4', '--l5', '--l6'];
+  // la fiche complète : l'essentiel en bandeau, puis deux colonnes (le personnage, son histoire).
+  // Les textes longs sont repliés sur quelques lignes, avec « Lire la suite ».
+  function fullBodyHTML(c) {
+    const v = c.v, f = form(c), d = k => disp(v[k], f), L = k => (v[k] || []).map(x => disp(x, f));
+    const stat = (k, val) => (val ? `<div><dt>${k}</dt><dd>${esc(val)}</dd></div>` : '');
+    const facts = stat('Âge', v.age ? v.age + ' ans' : '') + stat('Genre', v.genre) + stat('Origines', d('origine')) + stat('Ville', v.ville) + stat('Métier', d('metier')) +
+      stat('Affiliation', v.affiliation) + stat('Situation', d('situation')) + stat('Logement', v.logement);
+    const grp = (label, arr) => (arr.length ? `<div class="idc-grp"><span>${label}</span><ul class="idc-chips">${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
+    const fold = t => {
+      const paras = String(t).split(/\n+/).map(p => p.trim()).filter(Boolean), long = paras.join(' ').length > 300;
+      return `<div class="fold${long ? ' clamp' : ''}">${paras.map(p => `<p>${esc(p)}</p>`).join('')}</div>${long ? '<button type="button" class="link small-link" data-act="fold">Lire la suite</button>' : ''}`;
+    };
+    const txt = (label, t) => (t && String(t).trim() ? `<div class="idc-txt"><h5>${label}</h5>${fold(t)}</div>` : '');
+    const rels = c.rel.filter(r => r.nom || r.note);
+    const acc = (v.accroches || '').split('\n').map(l => l.replace(/^[•\-\s]+/, '').trim()).filter(Boolean);
+    const bg = bgParts(c);
+    const left = [
+      txt('Allure', allure(c)), grp('Style', L('style')), txt('Signes distinctifs', v.signes), txt('Voix et attitude', v.attitude),
+      grp('Traits', L('traits')), grp('Qualités', L('qualites')), grp('Défauts', L('defauts')), grp('Peurs', L('peurs')), grp('Loisirs', L('loisirs')),
+      txt('Motivation', v.motivation), txt('Manies', v.manies), txt('Secret', v.secret)
+    ].join('');
+    const right = [
+      txt('Enfance', v.enfance), txt('Parcours', v.parcours), v.evenement ? grp('Événement marquant', [d('evenement')]) : '', txt("Aujourd'hui", v.actuel),
+      acc.length ? `<div class="idc-txt"><h5>Accroches de RP</h5><ul class="idc-list">${acc.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '',
+      rels.length ? `<div class="idc-txt"><h5>Relations</h5><ul class="idc-rel2">${rels.map(r => `<li><b>${esc(r.nom || '?')}</b>${r.lien ? ` <span>${esc(r.lien)}</span>` : ''}${r.note ? `<em>${esc(r.note)}</em>` : ''}</li>`).join('')}</ul></div>` : '',
+      txt('Notes', v.notes)
+    ].join('');
+    const chars = bg.reduce((n, p) => n + p[1].length, 0);
+    const bgBlock = bg.length ? `<details class="idc-bg"><summary><span>Background</span><small>${bg.length} partie${bg.length > 1 ? 's' : ''} · ${chars} caractères</small></summary><div class="idc-bgbody">${bg.map(p => `<div class="idc-txt"><h5>${p[0]}</h5>${String(p[1]).split(/\n+/).filter(Boolean).map(t => `<p>${esc(t)}</p>`).join('')}</div>`).join('')}</div></details>` : '';
+    return `<dl class="idc-facts">${facts}</dl><div class="idc-body"><div class="idc-col"><h4 class="idc-coltitle">Le personnage</h4>${left || '<p class="ph">À compléter</p>'}</div>` +
+      `<div class="idc-col"><h4 class="idc-coltitle">Son histoire<button type="button" class="link small-link" data-act="foldAll">Tout déplier</button></h4>${right || '<p class="ph">À compléter</p>'}</div></div>${bgBlock}`;
+  }
   function cardHTML(c, full) {
     const s = sheet(c), v = c.v, f = form(c);
     const dd = (k, val, wide) => `<div${wide ? ' class="wide"' : ''}><dt>${k}</dt><dd>${val ? esc(val) : '<span class="ph">–</span>'}</dd></div>`;
@@ -524,10 +556,7 @@
     const chips = arr => (arr.length ? `<ul class="idc-chips">${arr.map(x => `<li>${esc(disp(x, f))}</li>`).join('')}</ul>` : '<p class="ph">À compléter</p>');
     let body = '';
     if (full) {
-      s.groups.forEach(g => {
-        const rows = g.title === 'Identité' ? g.rows.filter(r => ['Âge', 'Genre', 'Ville', 'Métier'].indexOf(r[0]) < 0) : g.rows;
-        if (rows.length) body += sec(g.title, `<dl class="idc-rows">${rows.map(r => `<div><dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd></div>`).join('')}</dl>`);
-      });
+      body = fullBodyHTML(c);
     } else {
       body += sec('Traits', chips(v.traits || []));
     }
@@ -538,7 +567,7 @@
 <figure class="idc-photo">${portrait(c)}</figure>
 <div class="idc-who">
 <h3 class="idc-name"><span class="idc-first">${esc(s.first) || '<span class="ph">Prénom</span>'}</span>${s.nick ? ` <span class="idc-nick">« ${esc(s.nick)} »</span>` : ''}<span class="idc-last">${esc(s.last.toUpperCase()) || '<span class="ph">NOM</span>'}</span></h3>
-<dl class="idc-dl">${dd('Âge', v.age ? v.age + ' ans' : '')}${dd('Genre', v.genre)}${dd('Ville', v.ville)}${dd('Métier', disp(v.metier, f))}</dl>
+${full ? `<p class="idc-sub">${esc(s.sub)}</p>` : `<dl class="idc-dl">${dd('Âge', v.age ? v.age + ' ans' : '')}${dd('Genre', v.genre)}${dd('Ville', v.ville)}${dd('Métier', disp(v.metier, f))}</dl>`}
 </div></div>
 ${body}
 ${full ? '' : '<div class="idc-more"><button type="button" class="link" data-act="goto" data-i="5">Voir la fiche complète</button></div>'}
@@ -1165,6 +1194,8 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
         $('#creply').value = ''; changed(k); toast('Texte inséré dans « ' + F[k].label + ' ».'); break;
       }
       case 'theme': cycleTheme(); break;
+      case 'fold': { const w = b.previousElementSibling; if (w) { const o = w.classList.toggle('open'); b.textContent = o ? 'Réduire' : 'Lire la suite'; } break; }
+      case 'foldAll': { const card = b.closest('.idcard'); if (card) { const o = card.classList.toggle('expanded'); b.textContent = o ? 'Tout replier' : 'Tout déplier'; $$('details.idc-bg', card).forEach(x => { x.open = o; }); } break; }
       case 'skip': e.preventDefault(); $('#main').focus(); break;
       case 'world':
         if (W() !== b.dataset.w) { setWorld(b.dataset.w); refreshExample(); scheduleSave(); }
