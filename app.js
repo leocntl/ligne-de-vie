@@ -177,6 +177,13 @@
   const cpick = (key, c, base, n) => COH.pick(key, c, base, n, W() === 'gta');
   const cone = (key, c, base) => cpick(key, c, base, 1)[0] || pick(base.length ? base : ['']);
   const cwords = (key, c, base, n) => COH.words(key, c, base, n, W() === 'gta');
+  // tous les métiers possibles pour ce personnage, notés par coherence.js : courants d'abord, adaptés à l'âge, au lieu et aux goûts
+  function jobPool(c, withIdeas) {
+    const gta = W() === 'gta', v = c.v.ville;
+    const base = D.METIERS.concat(D.METIERS_ETUDIANTS, gta ? D.metiersGta(v).concat(D.etudiantsGta(v)) : [], ['Retraité|Retraitée', 'Enchaîne les petits boulots'], withIdeas ? ipool('metier') : []);
+    return Array.from(new Set(base));
+  }
+  const pickJob = (c, n, avoid) => COH.pickJobs(c, jobPool(c, false), n, W() === 'gta', avoid);
   // champs libres qui proposent des idées, et nombre d'idées montrées
   const IDEA_FIELDS = { surnom: 6, metier: 5, affiliation: 6, signes: 4, attitude: 4, motivation: 4, manies: 4, secret: 3, enfance: 3, parcours: 3, actuel: 3, accroches: 4, notes: 4, traits: 6, qualites: 6, defauts: 6, peurs: 6, loisirs: 6, style: 6, logement: 5, evenement: 5 };
   const hasIdeas = key => key in IDEA_FIELDS && !!D.IDEES;
@@ -212,7 +219,10 @@
     const has = x => (Array.isArray(cur) ? cur.indexOf(x) >= 0 : typeof cur === 'string' && cur !== '' && cur.indexOf(x) >= 0);
     const fresh = list => { const l = list.filter(x => !has(x)), f = l.filter(x => avoid.indexOf(x) < 0); return f.length ? f : l; };
     let items;
-    if (key === 'surnom') {
+    if (key === 'metier') {
+      // les propositions de métier suivent la fiche : ce qui est courant et plausible d'abord, une idée plus rare de temps en temps
+      items = COH.pickJobs(c, jobPool(c, true), n, W() === 'gta', avoid, !avoid.length);
+    } else if (key === 'surnom') {
       const nk = nicknameIdeas(c), mine = pickN(nk.mine.filter(x => !has(x) && avoid.indexOf(x) < 0), 3);
       items = mine.concat(pickN(fresh(nk.pool).filter(x => mine.indexOf(x) < 0), n - mine.length));
     } else {
@@ -271,13 +281,8 @@
     ville: { t: 'text', label: 'Ville ou quartier', ph: () => (W() === 'gta' ? 'Davis (Los Santos)' : 'Austin, TX'), list: 'villes', max: 50, w: 'half', gen: () => pick(D.VILLES) },
     metier: {
       t: 'text', label: 'Métier ou occupation', ph: 'Infirmière', list: 'metiers', max: 70, w: 'half',
-      gen: c => {
-        const a = c.v.age || 30;
-        const gta = W() === 'gta', ok = list => { const l = a >= 23 ? list : list.filter(j => !D.JOBS_ADULT.test(j)); return l.length ? l : list; };
-        if (a <= 24 && Math.random() < 0.55) return pick(gta && Math.random() < 0.6 ? D.etudiantsGta(c.v.ville) : D.METIERS_ETUDIANTS);
-        if (a >= 64 && Math.random() < 0.5) return 'Retraité|Retraitée';
-        return pick(ok(gta && Math.random() < 0.6 ? D.metiersGta(c.v.ville) : D.METIERS));
-      }
+      // choix pondéré : métiers courants, adaptés à l'âge et au lieu, puis aux goûts de la fiche (voir coherence.js)
+      gen: c => pickJob(c, 1)[0] || pick(D.METIERS)
     },
     affiliation: {
       t: 'chips', label: 'Affiliation', opts: D.AFFILIATIONS, custom: true, world: 'gta',
@@ -1101,12 +1106,15 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   }
   // la fiche en image (PNG) ou en PDF, dessinée dans le navigateur
+  const exportModel = c => {
+    const s = sheet(c), m = sheetModel(c), sm = summary(c);
+    return { s, model: { first: s.first, last: s.last, nick: s.nick, sub: s.sub, summary: sm.text, tags: sm.tags, portrait: c.photo.src || '', sections: m.sections, bg: m.bg } };
+  };
   async function exportSheet(c, kind, btn) {
     const lab = btn && $('span', btn), old = lab ? lab.textContent : '';
     if (btn) { btn.disabled = true; if (lab) lab.textContent = 'Création…'; }
     try {
-      const s = sheet(c), m = sheetModel(c), sm = summary(c);
-      const model = { first: s.first, last: s.last, nick: s.nick, sub: s.sub, summary: sm.text, tags: sm.tags, portrait: c.photo.src || '', sections: m.sections, bg: m.bg };
+      const { s, model } = exportModel(c);
       const blob = await (kind === 'pdf' ? window.LDV_EXPORT.pdf(model) : window.LDV_EXPORT.png(model));
       saveFile(slug(s.name) + '.' + kind, blob, kind === 'pdf' ? 'application/pdf' : 'image/png');
       toast(kind === 'pdf' ? 'PDF téléchargé.' : 'Image téléchargée.');

@@ -11,7 +11,7 @@ window.LDV = window.LDV || {};
     { id: 'atelier', job: /mecanic|garag|depann|customs|carross|electricien|plombier|hvac|climatisation|ouvrier|batiment|usine|maintenance|bucheron|raffinerie|docker|chauffeu|camionneu|conducteu|taxi|livreu|factrice|facteur|postop/ },
     { id: 'service', job: /serveu|barista|bartender|barman|gerant|cuisini|food truck|diner|burger|pizza|up-n-atom|bahama|vendeu|caissi|supermarche|superette|boulang|patissi|coiffeu|tatoueu/ },
     { id: 'bureau', job: /avocat|juridi|juge|notaire|comptable|marketing|commercial|assurance|banqu|immobilier|consultant|bibliothec/ },
-    { id: 'artiste', job: /journalist|weazel|paparazzi|photograph|graphiste|musicien|acteu|actrice|cascad|animateu|artiste|chanteu|\bdj\b|non-stop-pop|guide des tournages|helicoptere de tournage/ },
+    { id: 'artiste', job: /journalist|weazel|paparazzi|photograph|graphiste|musicien|\bacteu|actrice|cascad|animateu|artiste|chanteu|\bdj\b|non-stop-pop|guide des tournages|helicoptere de tournage/ },
     { id: 'ecole', job: /enseignant|professeu|educateu|coach|moniteu|instituteu|pasteu/ },
     { id: 'rue', job: /contrebandi|braqueu|trafiquant|clandestin|pegre|combines|ballas|families|vagos|marabunta|lost mc|mafia|cartel|merryweather|indic|sans etiquette|ancien des|chasseu\S* de primes/ },
     { id: 'arme', job: /militaire|merryweather|garde du corps|agent\S* de securite|gruppe sechs|vigile|veteran/, like: /service militaire|armee|ancien militaire/ },
