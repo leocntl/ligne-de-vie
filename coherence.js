@@ -182,8 +182,8 @@ window.LDV_COH = (function () {
      Les métiers rares ou farfelus restent possibles, mais ne sortent que si la fiche les appelle. */
   const J_CRIME = /contrebandi|braqueu|trafiquant|clandestin|pegre|combines/;
   const J_NICHE = /hacker|testeu\S* d'intrusion|analyste en cyber|data analyst|jeux video|bug bounty|salle serveurs|streamers|apiculteu|phare|accordeu|flipper|jukebox|chasseu\S* de primes|caution judiciaire|negociateu|traducteu|guide des tournages|helicoptere|limousine|auto-ecole de nuit|fourriere|ouvreu|detective prive|\bmods\b|coordinateu\S* de cascades|fleurs de nuit|dresseu|honnetete douteuse|revendeu|cascadeu|paparazzi|figurant|pasteu|plongee|glaces sur la jetee|reparateu\S* de consoles|webmaster|animateu\S* sur|inspecteu\S* des assurances|pecheu|eleveu|fermier|bucheron|gardien\S* de parc|ranger|apiculteu/;
-  const J_COMMON = /serveu|barista|caissi|vendeu|cuisini|livreu|chauffeu|mecanic|infirm|aide-soign|agent\S* de securite|ouvrier|conducteu|camionneu|facteur|factrice|coiffeu|employe|supermarche|superette/;
-  const J_MID = /technicien|electricien|plombier|gerant|comptable|enseignant|professeu|polic|adjoint|highway|pompier|ambulan|developpeu\S* web|informaticien|commercial|assistant|journalist|barman|bartender|depann|tatoueu|photograph|graphiste|musicien|acteu\S* en devenir|marketing|charge|proprietaire|medecin|avocat/;
+  const J_COMMON = /serveu|barman|barista|caissi|vendeu|cuisini|boulanger|patissi|livreu|chauffeu|mecanic|infirm|aide-soign|agent\S* de securite|agent\S* d'entretien|aide a domicile|ouvrier|conducteu|camionneu|facteur|factrice|coiffeu|employe|supermarche|superette|magasinier|docker|macon|peintre en batiment|menuisier|soudeu|jardinier|receptionniste|secretaire|esthetici|commercant|demenageu|assistant\S* maternelle|depann|electricien|plombier/;
+  const J_MID = /technicien|gerant|comptable|enseignant|professeu|instituteu|polic|adjoint|highway|pompier|ambulan|developpeu|informaticien|commercial|assistant|journalist|bartender|tatoueu|photograph|graphiste|musicien|acteu|actrice|marketing|charge|proprietaire|medecin|avocat|banquier|agent immobilier|entrepreneu|consultant|garde du corps|militaire|detective|chanteu|danseu|\bdj\b|ecrivain|animateu|artiste|carrossier|serrurier|agriculteu|sportif professionnel|moniteu|coach/;
   const J_SKILLED = /pharmac|dentiste|psycholog|veterinaire|kinesi|ingenieu|pilote|bibliothec|educateu|coach|service social|detective|militaire|animateu/;
   function jobBase(n) {
     if (/etudiant|alternant|retrait/.test(n)) return 1;
@@ -200,7 +200,7 @@ window.LDV_COH = (function () {
   const J_MIN = [[/medecin|chirurg|avocat|juge|pharmac|dentiste|veterinaire|psycholog|ingenieu|notaire/, 27], [/pilote de ligne|pilote a los santos|commissaire|detective|inspecteu|ranger|proprietaire|gerant/, 25], [/polic|adjoint|highway|pompier|ambulan|infirm|enseignant|professeu|comptable|journalist|assistant juridique|kinesi|service social|bibliothec|pilote|marketing|educateu|coach/, 22]];
   const J_MAX = [[/cascad|pompier|bucheron/, 52], [/polic|adjoint|highway|ranger|ambulan|ouvrier|livreu|camionneu|conducteu|depann/, 62], [/pilote de ligne/, 65]];
   function jobAgeFactor(n, age) {
-    if (/etudiant|alternant/.test(n)) return age <= 19 ? 8 : age <= 21 ? 7 : age <= 23 ? 4.5 : age <= 25 ? 2.5 : age <= 28 ? 1.2 : age <= 32 ? 0.3 : age <= 40 ? 0.03 : 0;
+    if (/etudiant|alternant/.test(n)) return age <= 19 ? 28 : age <= 21 ? 25 : age <= 23 ? 14 : age <= 25 ? 6 : age <= 28 ? 2.2 : age <= 32 ? 0.5 : age <= 40 ? 0.05 : 0;
     if (/retrait/.test(n)) return age >= 68 ? 60 : age >= 65 ? 25 : age >= 62 ? 6 : age >= 60 ? 1.5 : 0;
     if (age < 18) return /petits boulots|livreu|caissi|vendeu|serveu/.test(n) ? 0.3 : 0;
     let f = 1;
@@ -257,13 +257,13 @@ window.LDV_COH = (function () {
       // un goût pour la mécanique ou les moteurs mène d'abord à l'atelier, pas seulement à la route
       if (interests.atelier && /mecanic|garag|depann|customs|carross/.test(n)) boost *= 2;
       w *= boost;
-      if (rural) { if (/pecheu|eleveu|fermier|bucheron|gardien\S* de parc|ranger|apiculteu|mecanic|depann/.test(n)) w *= 5; }
-      else if (gta && /pecheu|eleveu|fermier|bucheron|gardien\S* de parc|apiculteu/.test(n)) w *= 0.25;
+      if (rural) { if (/pecheu|eleveu|fermier|agriculteu|bucheron|gardien\S* de parc|ranger|apiculteu|mecanic|depann/.test(n)) w *= 5; }
+      else if (gta && /pecheu|eleveu|fermier|agriculteu|bucheron|gardien\S* de parc|apiculteu/.test(n)) w *= 0.25;
       if (coast && /plongee|pecheu|glaces|bartender|serveu/.test(n)) w *= 2;
       if (arts && /\bacteu|cascad|paparazzi|photograph|musicien|animateu|journalist|figurant|guide des tournages/.test(n)) w *= 2.5;
       // dans l'univers GTA, la version locale d'un métier passe avant la version générique
       if (gta && !isGtaJob(raw) && gtaWords.has(n.split(/\s+/)[0])) w *= 0.35;
-      items.push({ t: raw, w, fam: th[0] || n.split(/\s+/)[0], boost });
+      items.push({ t: raw, w, fam: th.indexOf('etudiant') >= 0 ? 'etudiant' : th[0] || n.split(/\s+/)[0], boost });
     });
     return items;
   }

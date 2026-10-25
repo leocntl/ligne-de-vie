@@ -179,9 +179,8 @@
   const cwords = (key, c, base, n) => COH.words(key, c, base, n, W() === 'gta');
   // tous les métiers possibles pour ce personnage, notés par coherence.js : courants d'abord, adaptés à l'âge, au lieu et aux goûts
   function jobPool(c, withIdeas) {
-    const gta = W() === 'gta', v = c.v.ville;
-    const base = D.METIERS.concat(D.METIERS_ETUDIANTS, gta ? D.metiersGta(v).concat(D.etudiantsGta(v)) : [], ['Retraité|Retraitée', 'Enchaîne les petits boulots'], withIdeas ? ipool('metier') : []);
-    return Array.from(new Set(base));
+    // des intitulés simples (« Mécanicien », « Infirmier »), sans employeur ni lieu ; les listes précises ne servent qu'à reconnaître une description
+    return Array.from(new Set(D.METIERS_BASE.concat(D.METIERS_ETUDIANTS_BASE, ['Retraité|Retraitée', 'Enchaîne les petits boulots', 'Sans emploi pour le moment', 'Freelance'])));
   }
   const pickJob = (c, n, avoid, strict) => COH.pickJobs(c, jobPool(c, false), n, W() === 'gta', avoid, false, strict);
   // champs libres qui proposent des idées, et nombre d'idées montrées
