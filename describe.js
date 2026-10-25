@@ -633,6 +633,14 @@ window.LDV_DESCRIBE = (function () {
         rel.push({ nom: '', lien: 'Famille', role: girl ? 'fille' : 'fils', note: girl ? 'Sa fille.' : 'Son fils.' });
       }
       note(nk + ' enfant' + (nk > 1 ? 's' : ''));
+    } else {
+      // « divorcé, un fils », « mariée, deux filles » : les enfants sont cités par leur sexe
+      const km2 = /(?:pere|mere|divorce|divorcee|marie|mariee|veuf|veuve|separe|separee|parent|celibataire)[^.;\n]{0,40}?(?<![a-z])(un|une|deux|trois|quatre|cinq)\s+(fils|filles?|garcons?)(?![a-z])|(?<![a-z])a\s+(un|une|deux|trois|quatre|cinq)\s+(fils|filles?|garcons?)(?![a-z])/.exec(t);
+      if (km2) {
+        const nk = KIDN[km2[1] || km2[3]] || 0, girls = /fille/.test(km2[2] || km2[4]);
+        for (let i = 0; i < Math.min(nk, 3) && rel.length < 5; i++) rel.push({ nom: '', lien: 'Famille', role: girls ? 'fille' : 'fils', note: girls ? 'Sa fille.' : 'Son fils.' });
+        if (nk) note(nk + ' enfant' + (nk > 1 ? 's' : ''));
+      }
     }
     [['enfance', 'Enfance'], ['parcours', 'Parcours'], ['actuel', "Aujourd'hui"], ['manies', 'Manies']].forEach(x => {
       if (narr[x[0]].length && !v[x[0]]) { v[x[0]] = narr[x[0]].map(p => tidyClause(p)).join('. ') + '.'; note(x[1]); }

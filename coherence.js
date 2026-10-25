@@ -84,6 +84,7 @@ window.LDV_COH = (function () {
     if (p.student && /promotion|collegues|patron|\bbureau\b|licenci|embauch|salaire|carriere|reconvers|heures sup|\bcontrat/.test(t) && key !== 'relnote') return true;
     if (p.retired && /promotion|carriere|stage\b|diplome|premiere maison|ouvrir (?:son|un)|se faire un nom|premier job|premier poste|dettes? d'etudes/.test(t)) return true;
     if (key === 'logement' && /plein desert/.test(t) && !/sandy shores|harmony|grapeseed|blaine|paleto/.test(norm(p.villeRaw))) return true;
+    if (key === 'logement' && /mobile home|caravane/.test(t) && /vespucci|del perro|vinewood|rockford|burton|mirror park|little seoul|downtown|richman|vice point|ocean beach|algonquin|dukes/.test(norm(p.villeRaw))) return true;
     if ((p.kids || p.married) && key === 'secret' && /appartement vide|rentrer dans un appartement|vit seul|seul chez|personne ne l'attend/.test(t)) return true;
     if (p.upscale && p.age >= 28 && key === 'logement' && /mobile home|caravane|motel|colocation|residence universitaire|chez ses parents|chez un proche|studio|sous-sol/.test(t)) return true;
     if ((p.kids || p.married) && key === 'motivation' && /(?:se construire|fonder|avoir) une famille|trouver l'amour|rencontrer quelqu'un|se marier|premier enfant|trouver quelqu'un/.test(t)) return true;

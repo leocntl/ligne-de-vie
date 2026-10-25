@@ -212,11 +212,16 @@ window.LDV_LIFE = (function () {
     let home = null;
     if (oi.kind === 'nation') {
       place.nation = oi.nation;
-      const abroad = R.chance(age >= 24 ? 0.58 : 0.3);
+      // « Amérindien » et « Louisianais » sont des origines américaines : on n'y a pas émigré
+      const domestic = /^(?:Amérindien|Louisianais)/.test(oi.nation.v);
+      const abroad = !domestic && R.chance(age >= 24 ? 0.58 : 0.3);
       if (abroad) {
         place.abroad = true; place.arriveAge = Math.min(age - 1, R.int(5, Math.max(6, Math.min(24, age - 2))));
         home = hometown(); place.birth = oi.nation.loc; place.grew = home.name; place.far = !home.reg;
-      } else { home = hometown(); place.birth = home.name; place.grew = home.name; place.far = !home.reg; }
+      } else {
+        home = hometown(); place.birth = home.name; place.grew = home.name; place.far = !home.reg;
+        if (domestic && R.chance(0.6)) place.birthAt = oi.nation.loc;
+      }
     } else if (oi.kind === 'city') {
       place.birth = strip(R.pick(oi.city.lieux)); place.grew = place.birth;
       place.far = strip(place.grew) !== nowCity && !(oi.city.lieux || []).some(l => strip(l) === nowCity);
@@ -715,7 +720,7 @@ window.LDV_LIFE = (function () {
         if (b.place.arriveAge >= 18) P('origines', 'moved', `À ${b.place.arriveAge} ans, ${n} quitte son pays natal et s'installe ${at(b.place.grew)}, ${R.pick(["pour tenter sa chance", "pour rejoindre un oncle déjà installé là-bas", "pour fuir des années difficiles", "pour un travail qu'on lui promettait"])}. ${Il} y apprend l'anglais sur le tas, en copiant les autres et en riant de ses propres erreurs.`);
         else P('origines', 'moved', `À ${b.place.arriveAge} ans, la famille quitte son pays natal et s'installe ${at(b.place.grew)}, ${R.pick(["pour offrir une meilleure vie aux enfants", "pour rejoindre un oncle déjà installé là-bas", "pour fuir des années difficiles"])}. ${n} y apprend l'anglais à l'école, en copiant les autres et en riant de ses propres erreurs.`);
       } else {
-        P('origines', 'birth', R.pick([`${n} est né${b.e} ${yearTxt} ${at(b.place.birth)}, ${b.sibs.length ? rankPhrase(b) : 'enfant unique'}.`, `${n} voit le jour ${yearTxt} ${at(b.place.birth)}, ${b.sibs.length ? rankPhrase(b) : 'enfant unique'}.`, `${cap(yearTxt)}, ${n} naît ${at(b.place.birth)}, ${b.sibs.length ? rankPhrase(b) : 'enfant unique'}.`]));
+        P('origines', 'birth', R.pick([`${n} est né${b.e} ${yearTxt} ${b.place.birthAt || at(b.place.birth)}, ${b.sibs.length ? rankPhrase(b) : 'enfant unique'}.`, `${n} voit le jour ${yearTxt} ${b.place.birthAt || at(b.place.birth)}, ${b.sibs.length ? rankPhrase(b) : 'enfant unique'}.`, `${cap(yearTxt)}, ${n} naît ${b.place.birthAt || at(b.place.birth)}, ${b.sibs.length ? rankPhrase(b) : 'enfant unique'}.`]));
         if (b.sibs.length && R.chance(0.6)) P('origines', 'sibs', `${Il} grandit avec ${sibsPhrase(b)}.`);
       }
       P('origines', 'family', parentsLine(b, R));
@@ -765,7 +770,9 @@ window.LDV_LIFE = (function () {
     const status = () => {
       if (J.status === 'minor') return `${n} est ${b.g === 'f' ? 'lycéenne' : 'lycéen'}, en ${['première', 'deuxième', 'troisième', 'dernière'][Math.max(0, Math.min(3, b.age - 14))]} année de lycée, et ${R.pick(['prend les cours plus ou moins au sérieux, selon les jours', 'pense déjà à ce qui vient après', 'partage son temps entre les cours, les amis et les devoirs'])}.`;
       if (J.status === 'student') return `${n} est aujourd'hui ${J.label}${emp}, en ${['première', 'deuxième', 'troisième', 'quatrième', 'cinquième'][Math.max(0, Math.min(4, b.age - 18))]} année, et jongle entre les cours, un job d'appoint et un budget serré.`;
-      if (J.status === 'retired') return `Après ${Math.max(5, (K.endAge || 62) - (K.startAge || 20))} ans comme ${J.former}, ${n} prend sa retraite en ${b.yr(K.endAge || 62)} et goûte un rythme plus lent.`;
+      if (J.status === 'retired') return J.fam && J.fam.id === 'army' && b.mil
+        ? `Après ${numw(Math.max(1, b.mil.years))} ans sous l'uniforme, ${n} retrouve la vie civile, puis prend sa retraite en ${b.yr(K.endAge || 62)} et goûte un rythme plus lent.`
+        : `Après ${Math.max(5, (K.endAge || 62) - (K.startAge || 20))} ans comme ${J.former}, ${n} prend sa retraite en ${b.yr(K.endAge || 62)} et goûte un rythme plus lent.`;
       if (J.status === 'none') return `${n} est sans emploi pour le moment${b.evt && b.evt.id === 'fired' ? ', depuis son licenciement' : ''}, et cherche une nouvelle direction.`;
       if (J.status === 'petits') return `${n} enchaîne les petits boulots, au gré des annonces et des coups de fil, sans jamais savoir de quoi sera fait le mois suivant.`;
       if (J.status === 'econ') return `${n} vit de ses économies, et ${il} sait qu'elles ne dureront pas.`;
@@ -829,7 +836,9 @@ window.LDV_LIFE = (function () {
       const since = moved && (!b.place.same || moved.reason === 'immig') && moved.age <= b.age ? b.yr(moved.age) : null;
       const lieuV = BGD.LIEUX && b.gta && b.nowCity && b.nowCity !== b.place.grew ? BGD.LIEUX[b.nowCity] : '';
       const recent = since != null && b.yr(b.age) - since <= 6;
-      if (b.nowCity) P('aujourdhui', 'home', since ? R.pick(recent ? [`${n} vit ${log || 'dans un petit logement'} ${at(b.nowCity)}, où ${il} s'est installé${b.e} en ${since}.`, `Depuis ${since}, ${n} vit ${log || 'dans un petit logement'} ${at(b.nowCity)}.`] : [`${n} vit ${log || 'dans un petit logement'} ${at(b.nowCity)}, la ville où ${il} a posé ses valises en ${since}.`, `${n} habite ${at(b.nowCity)} depuis ${since} : ${il} y vit ${log || 'dans un petit logement'}.`]) : R.pick([`${n} n'a jamais vraiment quitté ${b.nowCity} : ${il} y vit ${log || 'dans un petit logement'}, à quelques rues d'où ${il} a grandi.`, `${n} vit ${log || 'dans un petit logement'} ${at(b.nowCity)}, la ville où ${il} a grandi.`]));
+      // « un appartement de Vespucci » dit déjà la ville : on ne la répète pas
+      const where = b.nowCity && norm(log).indexOf(norm(b.nowCity)) >= 0 ? '' : ' ' + at(b.nowCity);
+      if (b.nowCity) P('aujourdhui', 'home', since ? R.pick(recent ? [`${n} vit ${log || 'dans un petit logement'}${where}, où ${il} s'est installé${b.e} en ${since}.`, `Depuis ${since}, ${n} vit ${log || 'dans un petit logement'}${where}.`] : [`${n} vit ${log || 'dans un petit logement'}${where}, la ville où ${il} a posé ses valises en ${since}.`, `${n} habite ${at(b.nowCity)} depuis ${since} : ${il} y vit ${log || 'dans un petit logement'}.`]) : R.pick([`${n} n'a jamais vraiment quitté ${b.nowCity} : ${il} y vit ${log || 'dans un petit logement'}, à quelques rues d'où ${il} a grandi.`, `${n} vit ${log || 'dans un petit logement'}${where}, la ville où ${il} a grandi.`]));
       if (lieuV && R.chance(0.6)) P('aujourdhui', 'place', lieuV);
       const pn = b.partner ? b.partner.nom : '';
       const cu = {
@@ -903,7 +912,7 @@ window.LDV_LIFE = (function () {
   const FIELD_PLAN = {
     enfance: { sec: 'origines', want: [['birth'], ['family'], ['class', 'place', 'herit', 'hobby', 'trait', 'fear', 'sibs', 'moved', 'plink']], max: 3 },
     parcours: { sec: 'parcours', want: [['mil', 'status', 'prev', 'train'], ['entry', 'early', 'job', 'side'], ['now', 'affil', 'quality', 'hard', 'memory']], ordered: [0], max: 3 },
-    actuel: { sec: 'aujourdhui', want: [['home'], ['couple', 'kids'], ['daily', 'hobby', 'rel', 'defect', 'fear', 'goal', 'trait']], max: 3 }
+    actuel: { sec: 'aujourdhui', want: [['home'], ['couple'], ['kids'], ['daily', 'hobby', 'rel', 'defect', 'fear', 'goal', 'trait']], max: 4 }
   };
   function field(key, c, disp, form, world, n, offset, cover) {
     const plan = FIELD_PLAN[key];
