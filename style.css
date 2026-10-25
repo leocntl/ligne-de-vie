@@ -678,6 +678,11 @@ body[data-view="bg"] [data-only]:not([data-only~="bg"]) { display: none !importa
 .img-lbl { font: 500 11px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .img-text { font: 400 13px/1.65 var(--f-mono); min-height: 150px; resize: vertical; }
 @media (max-width: 560px) { .img-row { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+.imgprompt .hint { margin: 0; }
+.img-direct { display: grid; gap: 10px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.img-direct h6 { margin: 0; font: 600 10.5px/1.2 var(--f-mono); letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+.img-gen { display: grid; gap: 10px; margin: 0; justify-items: start; }
+.img-gen img { display: block; width: min(100%, 280px); height: auto; border-radius: 14px; border: 1px solid var(--border); background: var(--chip); }
 
 /* ---------- résumé écrit par une IA (demande à copier, réponse à coller) ---------- */
 .resume-ai { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 10px; }

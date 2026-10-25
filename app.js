@@ -736,16 +736,36 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
   }
 
   /* ---------- texte pour une IA qui génère des images ---------- */
+  // ChatGPT s'ouvre avec la demande déjà écrite (il reste à envoyer) ; le texte demande explicitement une image
+  const gptUrl = text => 'https://chatgpt.com/?q=' + encodeURIComponent((ui.img.lang === 'fr' ? 'Crée une image : ' : 'Generate an image: ') + text);
   function imgPromptHTML(c) {
-    const IM = window.LDV_IMG, o = ui.img;
+    const IM = window.LDV_IMG, o = ui.img, AI = window.LDV_AI, cfg = AI.imgLoad(), text = IM.build(c, o, W() === 'gta');
     const row = (k, label) => `<div class="img-row"><span class="img-lbl">${label}</span><div class="chips" role="group" aria-label="${label}">${IM.OPT[k].map(x => `<button type="button" class="chip" data-act="imgOpt" data-k="${k}" data-v="${x[0]}" aria-pressed="${o[k] === x[0]}">${x[1]}</button>`).join('')}</div></div>`;
-    return `<div class="field full group imgprompt" data-field="imgprompt"><div class="field-head"><span class="lbl group-title">Créer l'image avec une IA</span></div>
-<p class="hint">Le texte ci-dessous décrit ton personnage d'après sa fiche. Copie-le dans une IA qui génère des images, puis ajoute l'image obtenue dans « Image du personnage ». Rien n'est envoyé depuis ce site.</p>
+    const result = ui.imgGen && ui.imgGen.cid === c.id ? `<figure class="img-gen"><img src="${ui.imgGen.url}" alt="Image générée par ChatGPT"><div class="btnrow"><button type="button" class="btn primary" data-act="imgUse">Utiliser cette image</button><button type="button" class="btn" data-act="imgGen"${cfg.key ? '' : ' disabled'}>Générer une autre</button></div></figure>` : '';
+    const api = `<details class="ai-settings"${cfg.key ? '' : ' open'}><summary>Générer l'image ici avec ma clé OpenAI${cfg.key ? ' · clé enregistrée' : ''}</summary>
+<div class="ai-fields">
+<label class="lbl" for="imgKey">Clé OpenAI</label><input class="in" id="imgKey" type="password" autocomplete="off" spellcheck="false" placeholder="${cfg.key ? 'Clé enregistrée (laisse vide pour la garder)' : 'Colle ta clé ici'}">
+<label class="lbl" for="imgModel">Modèle</label><input class="in" id="imgModel" type="text" value="${esc(cfg.model)}" autocomplete="off" spellcheck="false">
+<label class="lbl" for="imgQuality">Qualité</label><select class="in" id="imgQuality">${[['low', 'Économique'], ['medium', 'Standard'], ['high', 'Haute']].map(q => `<option value="${q[0]}"${cfg.quality === q[0] ? ' selected' : ''}>${q[1]}</option>`).join('')}</select>
+</div>
+<p class="hint">Chaque image est facturée par OpenAI sur ton compte (quelques centimes selon la qualité : vérifie leurs tarifs). La clé reste dans ce navigateur, et la demande ci-dessus est envoyée à OpenAI. OpenAI peut demander de vérifier ton organisation avant d'autoriser ses modèles d'image. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Créer une clé</a></p>
+<div class="btnrow"><button type="button" class="btn" data-act="imgGenSave">Enregistrer</button>${cfg.key ? '<button type="button" class="btn ghost" data-act="imgGenForget">Effacer la clé</button>' : ''}</div></details>`;
+    return `<div class="field full group imgprompt" data-field="imgprompt"><div class="field-head"><span class="lbl group-title">Créer l'image avec ChatGPT ou une autre IA</span></div>
+<p class="hint">Le texte ci-dessous décrit ton personnage d'après sa fiche. Ouvre-le dans ChatGPT, ou copie-le dans l'IA de ton choix, puis ajoute l'image obtenue dans « Image du personnage ».</p>
 <div class="img-opts">${row('style', 'Rendu')}${row('frame', 'Cadrage')}${row('scene', 'Décor')}${row('lang', 'Langue')}</div>
-<textarea class="in img-text" id="imgPrompt" rows="7" readonly aria-label="Texte à copier dans l'IA">${esc(IM.build(c, o, W() === 'gta'))}</textarea>
-<div class="btnrow"><button type="button" class="btn primary" data-act="imgCopy">${ICON.copy} Copier le texte</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a><a class="btn" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a><a class="btn" href="https://copilot.microsoft.com/" target="_blank" rel="noopener">Copilot</a></div></div>`;
+<textarea class="in img-text" id="imgPrompt" rows="7" readonly aria-label="Texte à copier dans l'IA">${esc(text)}</textarea>
+<div class="btnrow"><a class="btn primary" id="imgGptLink" href="${esc(gptUrl(text))}" target="_blank" rel="noopener">Ouvrir dans ChatGPT</a><button type="button" class="btn" data-act="imgCopy">${ICON.copy} Copier le texte</button><a class="btn" href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a><a class="btn" href="https://copilot.microsoft.com/" target="_blank" rel="noopener">Copilot</a></div>
+<p class="hint">« Ouvrir dans ChatGPT » prépare la demande : il te reste à l'envoyer. Si le texte n'apparaît pas, copie-le et colle-le.</p>
+<div class="img-direct"><h6>Sans quitter le site</h6>
+<div class="btnrow"><button type="button" class="btn" data-act="imgGen"${cfg.key ? '' : ' disabled'}>${ICON.spark} Générer l'image avec ChatGPT</button></div>
+<p class="hint" id="imgStatus" role="status">${cfg.key ? '' : 'Ajoute d\'abord ta clé OpenAI dans les réglages ci-dessous.'}</p>
+${result}${api}</div></div>`;
   }
-  const syncImgPrompt = () => { const ta = $('#imgPrompt'); if (ta) ta.value = window.LDV_IMG.build(C(), ui.img, W() === 'gta'); };
+  const syncImgPrompt = () => {
+    const ta = $('#imgPrompt'); if (!ta) return;
+    ta.value = window.LDV_IMG.build(C(), ui.img, W() === 'gta');
+    const a = $('#imgGptLink'); if (a) a.href = gptUrl(ta.value);
+  };
 
   function updateTailleHint() { const u = $('#u-taille'), t = C().v.taille; if (u) u.textContent = t ? 'cm · ' + imp(t) : 'cm'; }
 
@@ -1285,6 +1305,28 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
       case 'copyTxt': copyText(toText(c, false), 'Fiche copiée en texte brut.'); break;
       case 'copyLink': encodeShare(c).then(p => copyText(location.href.split('#')[0] + '#p=' + p, 'Lien de partage copié.')); break;
       case 'imgOpt': ui.img[b.dataset.k] = b.dataset.v; refreshField('imgprompt'); break;
+      case 'imgGenSave': {
+        const L = window.LDV_AI, old = L.imgLoad(), key = ($('#imgKey').value || '').trim() || old.key, model = ($('#imgModel').value || '').trim() || L.IMG_DEFAULTS.model;
+        L.imgSave({ key, model, quality: ['low', 'medium', 'high'].indexOf($('#imgQuality').value) >= 0 ? $('#imgQuality').value : 'medium' });
+        toast('Réglages enregistrés.'); refreshField('imgprompt'); break;
+      }
+      case 'imgGenForget': { const L = window.LDV_AI; L.imgSave(Object.assign(L.imgLoad(), { key: '' })); toast('Clé effacée de ce navigateur.'); refreshField('imgprompt'); break; }
+      case 'imgGen': {
+        if (ui.imgBusy) break;
+        ui.imgBusy = true; b.disabled = true;
+        const st = $('#imgStatus'); if (st) st.textContent = 'Génération en cours : cela peut prendre une minute…';
+        const cid = c.id;
+        window.LDV_AI.image($('#imgPrompt').value, '1024x1536').then(blob => {
+          if (ui.imgGen) URL.revokeObjectURL(ui.imgGen.url);
+          ui.imgGen = { blob, url: URL.createObjectURL(blob), cid };
+          refreshField('imgprompt'); toast('Image générée.');
+        }).catch(e => { const s2 = $('#imgStatus'); if (s2) s2.textContent = e && e.message ? e.message : 'Échec : réessaie.'; })
+          .then(() => { ui.imgBusy = false; const b2 = $('[data-act="imgGen"]'); if (b2 && window.LDV_AI.imgLoad().key) b2.disabled = false; });
+        break;
+      }
+      case 'imgUse':
+        if (ui.imgGen) { phOpen(new File([ui.imgGen.blob], 'chatgpt.png', { type: 'image/png' })); const pb = $('[data-field="photo"]'); if (pb) pb.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Cadre l\'image, puis clique sur « Utiliser cette image ».'); }
+        break;
       case 'imgCopy': copyText($('#imgPrompt').value, 'Texte copié : colle-le dans ton IA.'); break;
       case 'aiSave': {
         const L = window.LDV_AI, old = L.load(), prov = $('#aiProv').value in L.PRESETS ? $('#aiProv').value : 'gemini', Pr = L.PRESETS[prov];
