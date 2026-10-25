@@ -229,7 +229,9 @@ window.LDV_COH = (function () {
   const jobThemes = n => { const out = []; (D.THEMES || []).forEach(t => { if (t.job && t.job.test(n)) out.push(t.id); }); if (/etudiant|alternant/.test(n)) out.push('etudiant'); return out; };
   // strict : tirage de tout le personnage, les goûts restés d'une ancienne fiche ne comptent pas, sauf ceux que la personne a verrouillés ou décrits
   function jobInterests(c, strict) {
-    const v = c.v || {}, use = k => !strict || (c.locks && c.locks[k]), pick = k => (use(k) ? v[k] : null);
+    const v = c.v || {}, dsc = c.described || [];
+    // fiche décrite : seuls comptent les goûts écrits dans la description (le reste a été complété au hasard)
+    const use = k => (strict ? !!(c.locks && c.locks[k]) : dsc.length ? dsc.indexOf(k) >= 0 || k === 'notes' : true), pick = k => (use(k) ? v[k] : null);
     const txt = [].concat(arr(pick('traits')), arr(pick('qualites')), arr(pick('loisirs')), arr(pick('style'))).map(flat).join(' | ') + ' | ' + ['notes', 'enfance', 'parcours', 'actuel', 'motivation', 'manies', 'signes', 'attitude'].map(k => flat(pick(k))).join(' | ') + ' | ' + flat(pick('affiliation'));
     const out = {};
     Object.keys(J_INTEREST).forEach(id => { const m = txt.match(J_INTEREST[id]); if (m) out[id] = Math.min(3, new Set(m).size); });
