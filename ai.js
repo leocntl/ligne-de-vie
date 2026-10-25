@@ -49,39 +49,5 @@ window.LDV_AI = (function () {
     return clean(text);
   }
 
-  /* ---------- image : génération avec une clé OpenAI (ChatGPT Images) ---------- */
-  const IMG_STORE = 'alias.img.v1';
-  const IMG_DEFAULTS = { model: 'gpt-image-2.5-flare', quality: 'medium', key: '' };
-  const imgLoad = () => { try { return Object.assign({}, IMG_DEFAULTS, JSON.parse(localStorage.getItem(IMG_STORE) || '{}')); } catch (e) { return Object.assign({}, IMG_DEFAULTS); } };
-  const imgSave = cfg => { try { localStorage.setItem(IMG_STORE, JSON.stringify(cfg)); return true; } catch (e) { return false; } };
-  const imgFriendly = (status, msg) => {
-    const m = String(msg || '').replace(/\s+/g, ' ').slice(0, 200);
-    if (status === 401) return 'La clé OpenAI est refusée ou invalide' + (m ? ' (' + m + ')' : '') + '.';
-    if (status === 403) return 'OpenAI refuse l\'accès à ce modèle : l\'organisation doit parfois être vérifiée dans la console OpenAI' + (m ? ' (' + m + ')' : '') + '.';
-    if (status === 404) return 'Ce modèle d\'image n\'existe pas pour ce compte' + (m ? ' (' + m + ')' : '') + ' : change le nom du modèle dans les réglages.';
-    if (status === 429) return 'Limite atteinte ou crédit insuffisant sur le compte OpenAI' + (m ? ' (' + m + ')' : '') + '.';
-    if (status === 400) return 'OpenAI a refusé la demande' + (m ? ' : ' + m : '') + '.';
-    return 'OpenAI a répondu par une erreur (' + status + ')' + (m ? ' : ' + m : '') + '.';
-  };
-  // renvoie un Blob (image PNG) ; la génération peut durer une bonne minute
-  async function image(prompt, size, signal) {
-    const cfg = imgLoad();
-    if (!cfg.key) throw new Error('Aucune clé OpenAI enregistrée.');
-    let res, data;
-    try {
-      res = await fetch('https://api.openai.com/v1/images/generations', { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.key }, body: JSON.stringify({ model: cfg.model, prompt, size: size || '1024x1536', quality: cfg.quality, n: 1 }) });
-    } catch (e) {
-      if (e && e.name === 'AbortError') throw e;
-      throw new Error('Impossible de joindre OpenAI : vérifie ta connexion.');
-    }
-    try { data = await res.json(); } catch (e) { data = null; }
-    if (!res.ok) throw new Error(imgFriendly(res.status, data && data.error && (data.error.message || data.error)));
-    const b64 = data && data.data && data.data[0] && data.data[0].b64_json;
-    if (!b64) throw new Error('OpenAI n\'a renvoyé aucune image. Réessaie.');
-    const bin = atob(b64), bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new Blob([bytes], { type: 'image/png' });
-  }
-
-  return { PRESETS, load, save, configured, ask, image, imgLoad, imgSave, IMG_DEFAULTS };
+  return { PRESETS, load, save, configured, ask };
 })();

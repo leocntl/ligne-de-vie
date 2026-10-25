@@ -684,9 +684,6 @@ body[data-view="bg"] [data-only]:not([data-only~="bg"]) { display: none !importa
 .img-how li::before { content: counter(how); position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 600 11.5px var(--f-mono); color: var(--ink); background: var(--chip); border: 1px solid var(--border); }
 .img-how strong { color: var(--ink); font-weight: 600; }
 .img-how .btn { vertical-align: middle; margin: 0 2px; }
-.imgprompt .ai-settings .btnrow { margin-top: 12px; }
-.img-gen { display: grid; gap: 10px; margin: 0; justify-items: start; }
-.img-gen img { display: block; width: min(100%, 280px); height: auto; border-radius: 14px; border: 1px solid var(--border); background: var(--chip); }
 
 /* ---------- résumé écrit par une IA (demande à copier, réponse à coller) ---------- */
 .resume-ai { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 10px; }

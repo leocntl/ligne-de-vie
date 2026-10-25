@@ -740,19 +740,8 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
   // avec la demande déjà écrite ; la personne s'y connecte avec son propre compte
   const gptUrl = text => 'https://chatgpt.com/?q=' + encodeURIComponent((ui.img.lang === 'fr' ? 'Crée une image : ' : 'Generate an image: ') + text);
   function imgPromptHTML(c) {
-    const IM = window.LDV_IMG, o = ui.img, AI = window.LDV_AI, cfg = AI.imgLoad(), text = IM.build(c, o, W() === 'gta');
+    const IM = window.LDV_IMG, o = ui.img, text = IM.build(c, o, W() === 'gta');
     const row = (k, label) => `<div class="img-row"><span class="img-lbl">${label}</span><div class="chips" role="group" aria-label="${label}">${IM.OPT[k].map(x => `<button type="button" class="chip" data-act="imgOpt" data-k="${k}" data-v="${x[0]}" aria-pressed="${o[k] === x[0]}">${x[1]}</button>`).join('')}</div></div>`;
-    const has = ui.imgGen && ui.imgGen.cid === c.id;
-    const result = has ? `<figure class="img-gen"><img src="${ui.imgGen.url}" alt="Image générée par ChatGPT"><div class="btnrow"><button type="button" class="btn primary" data-act="imgUse">Utiliser cette image</button></div></figure>` : '';
-    const api = `<details class="ai-settings" data-more="imgadv"${has || ui.more.imgadv ? ' open' : ''}><summary>Option avancée : générer l'image ici avec une clé OpenAI (payant)${cfg.key ? ' · clé enregistrée' : ''}</summary>
-<p class="hint">Réservé à ceux qui ont une clé d'API OpenAI : chaque image est facturée par OpenAI sur ce compte (quelques centimes selon la qualité : vérifie leurs tarifs). La clé reste dans ce navigateur, et la demande ci-dessus est envoyée à OpenAI. OpenAI peut demander de vérifier l'organisation avant d'autoriser ses modèles d'image. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Créer une clé</a></p>
-<div class="ai-fields">
-<label class="lbl" for="imgKey">Clé OpenAI</label><input class="in" id="imgKey" type="password" autocomplete="off" spellcheck="false" placeholder="${cfg.key ? 'Clé enregistrée (laisse vide pour la garder)' : 'Colle ta clé ici'}">
-<label class="lbl" for="imgModel">Modèle</label><input class="in" id="imgModel" type="text" value="${esc(cfg.model)}" autocomplete="off" spellcheck="false">
-<label class="lbl" for="imgQuality">Qualité</label><select class="in" id="imgQuality">${[['low', 'Économique'], ['medium', 'Standard'], ['high', 'Haute']].map(q => `<option value="${q[0]}"${cfg.quality === q[0] ? ' selected' : ''}>${q[1]}</option>`).join('')}</select>
-</div>
-<div class="btnrow"><button type="button" class="btn" data-act="imgGenSave">Enregistrer</button>${cfg.key ? '<button type="button" class="btn ghost" data-act="imgGenForget">Effacer la clé</button>' : ''}<button type="button" class="btn primary" data-act="imgGen"${cfg.key ? '' : ' disabled'}>${ICON.spark} ${has ? 'Générer une autre image' : 'Générer l\'image'}</button></div>
-<p class="hint" id="imgStatus" role="status">${cfg.key ? '' : 'Enregistre d\'abord ta clé pour pouvoir générer.'}</p>${result}</details>`;
     return `<div class="field full group imgprompt" data-field="imgprompt"><div class="field-head"><span class="lbl group-title">Créer l'image avec ChatGPT</span></div>
 <p class="hint">Le texte ci-dessous décrit ton personnage d'après sa fiche. Change le rendu, le cadrage ou le décor : il se met à jour.</p>
 <div class="img-opts">${row('style', 'Rendu')}${row('frame', 'Cadrage')}${row('scene', 'Décor')}${row('lang', 'Langue')}</div>
@@ -762,8 +751,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
 <li><strong>Ouvre ChatGPT</strong> : une petite fenêtre s'ouvre à côté du site. Connecte-toi avec ton compte, puis envoie la demande (elle est déjà écrite et copiée : colle-la si elle n'apparaît pas). Un compte gratuit permet quelques images par jour.</li>
 <li><strong>Copie l'image</strong> : quand elle est prête, clic droit dessus puis « Copier l'image » (ou télécharge-la).</li>
 <li><strong>Reviens ici</strong> et colle-la : <button type="button" class="btn small" data-act="imgPaste">Coller l'image</button> ou Ctrl + V. Tu pourras la cadrer avant de l'utiliser.</li>
-</ol>
-${api}</div>`;
+</ol></div>`;
   }
   const syncImgPrompt = () => {
     const ta = $('#imgPrompt'); if (ta) ta.value = window.LDV_IMG.build(C(), ui.img, W() === 'gta');
@@ -1308,28 +1296,6 @@ ${api}</div>`;
       case 'copyTxt': copyText(toText(c, false), 'Fiche copiée en texte brut.'); break;
       case 'copyLink': encodeShare(c).then(p => copyText(location.href.split('#')[0] + '#p=' + p, 'Lien de partage copié.')); break;
       case 'imgOpt': ui.img[b.dataset.k] = b.dataset.v; refreshField('imgprompt'); break;
-      case 'imgGenSave': {
-        const L = window.LDV_AI, old = L.imgLoad(), key = ($('#imgKey').value || '').trim() || old.key, model = ($('#imgModel').value || '').trim() || L.IMG_DEFAULTS.model;
-        L.imgSave({ key, model, quality: ['low', 'medium', 'high'].indexOf($('#imgQuality').value) >= 0 ? $('#imgQuality').value : 'medium' });
-        toast('Réglages enregistrés.'); refreshField('imgprompt'); break;
-      }
-      case 'imgGenForget': { const L = window.LDV_AI; L.imgSave(Object.assign(L.imgLoad(), { key: '' })); toast('Clé effacée de ce navigateur.'); refreshField('imgprompt'); break; }
-      case 'imgGen': {
-        if (ui.imgBusy) break;
-        ui.imgBusy = true; b.disabled = true;
-        const st = $('#imgStatus'); if (st) st.textContent = 'Génération en cours : cela peut prendre une minute…';
-        const cid = c.id;
-        window.LDV_AI.image($('#imgPrompt').value, '1024x1536').then(blob => {
-          if (ui.imgGen) URL.revokeObjectURL(ui.imgGen.url);
-          ui.imgGen = { blob, url: URL.createObjectURL(blob), cid };
-          refreshField('imgprompt'); toast('Image générée.');
-        }).catch(e => { const s2 = $('#imgStatus'); if (s2) s2.textContent = e && e.message ? e.message : 'Échec : réessaie.'; })
-          .then(() => { ui.imgBusy = false; const b2 = $('[data-act="imgGen"]'); if (b2 && window.LDV_AI.imgLoad().key) b2.disabled = false; });
-        break;
-      }
-      case 'imgUse':
-        if (ui.imgGen) { phOpen(new File([ui.imgGen.blob], 'chatgpt.png', { type: 'image/png' })); toPhoto(); toast('Cadre l\'image, puis clique sur « Utiliser cette image ».'); }
-        break;
       case 'gptOpen': {
         const text = $('#imgPrompt').value;
         try { navigator.clipboard.writeText(text).catch(() => {}); } catch (e) { /* le texte reste copiable avec le bouton */ }
