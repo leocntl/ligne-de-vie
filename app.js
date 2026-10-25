@@ -183,7 +183,7 @@
     const base = D.METIERS.concat(D.METIERS_ETUDIANTS, gta ? D.metiersGta(v).concat(D.etudiantsGta(v)) : [], ['Retraité|Retraitée', 'Enchaîne les petits boulots'], withIdeas ? ipool('metier') : []);
     return Array.from(new Set(base));
   }
-  const pickJob = (c, n, avoid) => COH.pickJobs(c, jobPool(c, false), n, W() === 'gta', avoid);
+  const pickJob = (c, n, avoid, strict) => COH.pickJobs(c, jobPool(c, false), n, W() === 'gta', avoid, false, strict);
   // champs libres qui proposent des idées, et nombre d'idées montrées
   const IDEA_FIELDS = { surnom: 6, metier: 5, affiliation: 6, signes: 4, attitude: 4, motivation: 4, manies: 4, secret: 3, enfance: 3, parcours: 3, actuel: 3, accroches: 4, notes: 4, traits: 6, qualites: 6, defauts: 6, peurs: 6, loisirs: 6, style: 6, logement: 5, evenement: 5 };
   const hasIdeas = key => key in IDEA_FIELDS && !!D.IDEES;
@@ -282,7 +282,7 @@
     metier: {
       t: 'text', label: 'Métier ou occupation', ph: 'Infirmière', list: 'metiers', max: 70, w: 'half',
       // choix pondéré : métiers courants, adaptés à l'âge et au lieu, puis aux goûts de la fiche (voir coherence.js)
-      gen: c => pickJob(c, 1)[0] || pick(D.METIERS)
+      gen: (c, bulk) => pickJob(c, 1, null, !!bulk)[0] || pick(D.METIERS)
     },
     affiliation: {
       t: 'chips', label: 'Affiliation', opts: D.AFFILIATIONS, custom: true, world: 'gta',

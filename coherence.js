@@ -227,17 +227,19 @@ window.LDV_COH = (function () {
     rue: /roublard|rusé|ruse|flambeur|bagarreur|gang|cartel|trafic|combines/g
   };
   const jobThemes = n => { const out = []; (D.THEMES || []).forEach(t => { if (t.job && t.job.test(n)) out.push(t.id); }); if (/etudiant|alternant/.test(n)) out.push('etudiant'); return out; };
-  function jobInterests(c) {
-    const v = c.v || {}, txt = [].concat(arr(v.traits), arr(v.qualites), arr(v.loisirs), arr(v.style)).map(flat).join(' | ') + ' | ' + [v.notes, v.enfance, v.parcours, v.actuel, v.motivation, v.manies, v.signes, v.attitude].map(flat).join(' | ') + ' | ' + flat(v.affiliation);
+  // strict : tirage de tout le personnage, les goûts restés d'une ancienne fiche ne comptent pas, sauf ceux que la personne a verrouillés ou décrits
+  function jobInterests(c, strict) {
+    const v = c.v || {}, use = k => !strict || (c.locks && c.locks[k]), pick = k => (use(k) ? v[k] : null);
+    const txt = [].concat(arr(pick('traits')), arr(pick('qualites')), arr(pick('loisirs')), arr(pick('style'))).map(flat).join(' | ') + ' | ' + ['notes', 'enfance', 'parcours', 'actuel', 'motivation', 'manies', 'signes', 'attitude'].map(k => flat(pick(k))).join(' | ') + ' | ' + flat(pick('affiliation'));
     const out = {};
     Object.keys(J_INTEREST).forEach(id => { const m = txt.match(J_INTEREST[id]); if (m) out[id] = Math.min(3, new Set(m).size); });
-    if (/ballas|families|vagos|marabunta|lost mc|mafia|cartel/.test(flat(v.affiliation))) out.rue = 3;
-    if (/lspd|bcso|sahp/.test(flat(v.affiliation))) out.police = 3;
+    if (/ballas|families|vagos|marabunta|lost mc|mafia|cartel/.test(flat(pick('affiliation')))) out.rue = 3;
+    if (/lspd|bcso|sahp/.test(flat(pick('affiliation')))) out.police = 3;
     return out;
   }
   // une liste de métiers notés pour cette fiche : [{ t, w, fam }]
-  function jobScores(c, pool, gta) {
-    const v = c.v || {}, age = Number(v.age) || 30, ville = v.ville || '', interests = jobInterests(c), cur = jobText(v.metier);
+  function jobScores(c, pool, gta, strict) {
+    const v = c.v || {}, age = Number(v.age) || 30, ville = v.ville || '', interests = jobInterests(c, strict), cur = jobText(v.metier);
     const rural = gta && /Sandy Shores|Paleto|Grapeseed|Blaine/.test(ville), coast = gta && /Vespucci|Del Perro|Pacific Bluffs|Chumash/.test(ville), arts = gta && /Vinewood|Rockford|Mirror Park/.test(ville);
     const gtaWords = new Set(gta ? (D.METIERS_GTA || []).map(j => norm(j).split(/[\s|]+/)[0]) : []);
     const isGtaJob = raw => gta && (D.METIERS_GTA || []).indexOf(raw) >= 0;
@@ -264,8 +266,8 @@ window.LDV_COH = (function () {
     return items;
   }
   // n métiers pour cette fiche, variés (un même domaine ne revient pas cinq fois), sans ceux déjà montrés tant qu'il en reste
-  function pickJobs(c, pool, n, gta, avoid, lead) {
-    let items = jobScores(c, pool, gta);
+  function pickJobs(c, pool, n, gta, avoid, lead, strict) {
+    let items = jobScores(c, pool, gta, strict);
     if (avoid && avoid.length) { const left = items.filter(x => avoid.indexOf(x.t) < 0); if (left.length >= n) items = left; }
     const res = [];
     // à l'ouverture de l'ampoule, deux métiers du domaine qui plaît à ce personnage passent devant (s'il y en a)
