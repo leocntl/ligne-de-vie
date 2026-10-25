@@ -68,12 +68,24 @@ Partout où l'on peut écrire soi-même, le site propose des idées au hasard, e
 - **Surnoms** : déduits de la fiche (le métier, le caractère, les cheveux roux, les lunettes, la taille…) puis tirés d'une banque.
 - **Background** : le dé du « Texte libre » ajoute une anecdote originale, et de nouvelles phrases ont rejoint les parties générées.
 
+## Une histoire qui tient debout
+
+L'enfance, le parcours, la vie actuelle, l'événement marquant, les accroches de RP et le background viennent tous du même moteur (`life.js`, avec ses connaissances dans `life-data.js`). Il ne pioche pas des phrases au hasard : il construit d'abord la vie du personnage.
+
+- **Une graine par personnage** : parents, frères et sœurs, lieu de naissance, années et âges sont déduits de la fiche et de cette graine. Ils restent les mêmes d'un texte à l'autre, et relancer un dé change la façon de raconter, pas les faits.
+- **Une chronologie plausible** : année de naissance d'après l'âge, ville d'enfance (ou pays et âge d'arrivée), formation et premier poste selon le métier (apprentissage, école d'infirmiers, académie, droit, armée…), années de métier, retraite, divorce daté, âge des enfants, passé militaire. Un événement ne peut pas arriver avant que le métier commence, ni un enfant naître avant que le parent ait l'âge.
+- **La fiche explique la fiche** : chaque trait, chaque peur, chaque passion et chaque signe distinctif reçoit une origine cohérente avec le milieu, la famille et l'événement marquant (la peur de perdre ses enfants naît avec eux ou avec le divorce, pas dans l'enfance ; la moto vient d'un oncle ou d'un voisin à l'âge où l'on peut la conduire).
+- **Les proches de la fiche sont utilisés** : noms, rôle (mère, ex, équipier…) et notes servent dans le récit, et les relations tirées au hasard suivent la situation (marié, divorcé, célibataire), la famille d'origine, le métier et les passions.
+- **Les textes déjà écrits sont respectés** : si « Origines et enfance » parle déjà de la famille ou du lieu, le moteur n'y revient pas. Une idée de l'ampoule complète le texte au lieu de le répéter.
+- **Événements plausibles** : l'ampoule et le dé de « Événement marquant » écartent ce qui est impossible (licenciement d'un étudiant, faillite à 20 ans) et favorisent ce qui correspond à la fiche (service militaire pour un ancien militaire, solitude pour qui craint d'être seul).
+- **Accroches de RP** précises : ce que le métier, la passion, les enfants, l'ex ou le passé permettent à un autre personnage de faire.
+
 ## Background
 
 La page rédige l'histoire d'un personnage à partir de sa fiche.
 
 1. Choisir le personnage et une longueur : **court** (origines, parcours, aujourd'hui), **moyen** (avec la jeunesse et le tournant) ou **long** (avec le secret).
-2. Le texte est assemblé à partir de phrases types qui utilisent ce que contient la fiche : ville ou quartier, métier, affiliation, traits, loisirs, peurs, relations, événement marquant, motivation, secret. Les phrases qui parlent d'un élément absent de la fiche ne sont jamais choisies, et dans l'univers GTA chaque quartier a son ambiance.
+2. Le texte part d'une **chronologie** construite sur la fiche (voir « Une histoire qui tient debout » plus bas) : année de naissance, lieu, famille, études, premiers emplois, métier, relations, événement marquant, installation dans la ville. Chaque partie en tire des phrases précises : âges, années, noms des proches, employeur. Ce qui est déjà écrit dans « Origines et enfance », « Études et parcours » ou « Aujourd'hui » est repris tel quel et n'est jamais contredit.
 3. Chaque partie est un champ modifiable. Le dé relance une partie (le bouton « Rétablir la version précédente » rend l'ancien texte), « Tout réécrire » demande une confirmation, et les parties masquées gardent leur texte.
 4. Le champ **Texte libre** reçoit ce que l'on veut ajouter, par exemple la réponse de Claude.
 5. **Copier pour Discord** ou en texte brut. Le background figure aussi dans la fiche finale, dans les exports et dans le lien de partage.
@@ -92,10 +104,12 @@ Le site ne se connecte pas à Claude tout seul : il prépare une demande à part
 | `ideas.js` | Banque d'idées originales (surnoms, secrets, enfances, manies, anecdotes…) |
 | `photo.js` | Image du personnage : lecture, cadrage et enregistrement |
 | `describe.js` | Analyse de la description libre (mots-clés, synonymes, tournures de phrase) |
-| `background.js` | Phrases types et assemblage du background |
+| `background.js` | Tables de lieux et de groupes du background, anecdotes du « Texte libre » ; délègue les textes à `life.js` |
+| `life-data.js` | Connaissances du moteur d'histoire : familles de métiers (formation, premier poste, quotidien), origine des traits, peurs et passions, événements et leurs âges |
+| `life.js` | Moteur d'histoire : chronologie du personnage, enfance, parcours, vie actuelle, background, événements, relations, accroches |
 | `app.js` | Pages, champs, étapes, tirages, stockage, exports |
 
-Pour ajouter des métiers, des traits ou des phrases de tirage, il suffit de modifier `data.js` ; pour ajouter des idées originales, `ideas.js` (les listes finissant par `_gta` ne servent que dans l'univers GTA) ; pour le background, `background.js`.
+Pour ajouter des métiers, des traits ou des phrases de tirage, il suffit de modifier `data.js` ; pour ajouter des idées originales, `ideas.js` (les listes finissant par `_gta` ne servent que dans l'univers GTA) ; pour l'histoire et le background, `life-data.js` (métiers, origines des traits) et `life.js` (la mécanique).
 Écrire `Têtu|Têtue` donne le bon accord selon le personnage, et `~` introduit un suffixe commun (`Sûr|Sûre~ de soi`).
 
 ## Tester en local
@@ -133,5 +147,5 @@ Les noms de quartiers (Davis, Burton…) ne sont reconnus qu'après une préposi
 
 - Les personnages restent sur l'appareil et le navigateur utilisés. Pour les déplacer, utilise le fichier `.json` ou le lien de partage.
 - Il n'y a pas de connexion directe à Claude : cela demanderait une clé d'API gardée côté serveur (par exemple dans un Worker Cloudflare).
-- Le background est assemblé à partir de phrases types : il donne une base solide à relire et à modifier, pas un texte littéraire. Pour une version plus riche, la demande à Claude prend le relais.
+- Le background est écrit à partir d'une chronologie et de phrases types : il est précis et cohérent avec la fiche, mais ce n'est pas un texte littéraire. Pour une version plus riche, la demande à Claude prend le relais.
 - Le site ne génère pas d'images lui-même : il prépare la demande pour ChatGPT (ou Gemini, Copilot), que chacun envoie avec son propre compte. ChatGPT refuse d'être intégré dans une page, d'où la fenêtre à côté du site.

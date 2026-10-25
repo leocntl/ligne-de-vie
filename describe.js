@@ -200,12 +200,18 @@ window.LDV_DESCRIBE = (function () {
       note('Nom : ' + [v.prenom, v.nom].filter(Boolean).join(' '));
     }
     if (!v.prenom) {
-      const lead = orig.match(/^\s*([A-ZÀ-ÝŒ][\p{L}'-]{1,20})(?=\s*(?:\(|,|:|\n|$))/u);
+      const lead = orig.match(/^\s*([A-ZÀ-ÝŒ][\p{L}'-]{1,20})(?:\s+([A-ZÀ-ÝŒ][\p{L}'-]{1,24}))?(?=\s*(?:\(|,|:|\n|$))/u);
       if (lead) {
         const w = norm(lead[1]), known = {};
         D.METIERS.concat(D.METIERS_GTA || []).forEach(raw => forms(raw).forEach(f => { known[f.k.split(/[\s-]+/)[0]] = 1; }));
         const common = ['un', 'une', 'mon', 'ma', 'le', 'la', 'les', 'il', 'elle', 'homme', 'femme', 'garcon', 'fille', 'jeune', 'vieux', 'vieille', 'etudiant', 'etudiante', 'ancien', 'ancienne', 'couple', 'famille', 'personnage', 'persona', 'nom', 'age', 'physique'];
-        if (STOPN.indexOf(w) < 0 && common.indexOf(w) < 0 && !known[w] && !SYN_JOB[w] && !SYN_TRAIT[w]) { v.prenom = lead[1]; note('Nom : ' + v.prenom); }
+        if (STOPN.indexOf(w) < 0 && common.indexOf(w) < 0 && !known[w] && !SYN_JOB[w] && !SYN_TRAIT[w]) {
+          v.prenom = lead[1];
+          // « Marcus Reed, 34 ans… » : le deuxième mot est le nom de famille s'il n'est pas autre chose
+          const w2 = lead[2] ? norm(lead[2]) : '';
+          if (w2 && STOPN.indexOf(w2) < 0 && common.indexOf(w2) < 0 && !known[w2] && !SYN_JOB[w2] && !SYN_TRAIT[w2]) v.nom = lead[2];
+          note('Nom : ' + [v.prenom, v.nom].filter(Boolean).join(' '));
+        }
       }
     }
     const nick = om.match(/(?:surnomm[ée]e?|alias|surnom\s*:?)\s*[«"“]?\s*([\p{L}][\p{L}'-]{1,20})/u);
@@ -535,6 +541,18 @@ window.LDV_DESCRIBE = (function () {
     const loisirs = [];
     ext(D.LOISIRS.concat(D.LOISIRS_GTA || []), 'loisirs').forEach(raw => { const k = norm(raw); if (raw !== 'Mode' && wordRe(k, true).test(t)) loisirs.push(raw); });
     Object.keys(SYN_LOISIR).forEach(k => { if (k.length >= 4 && wordRe(norm(k), true).test(t) && loisirs.indexOf(SYN_LOISIR[k]) < 0) loisirs.push(SYN_LOISIR[k]); });
+    // « passionné de motos et de boxe », « fan de jazz » : les passions citées qui ne sont pas dans les listes
+    const hobRe = /(?:passionn[ée]e?s?\s+(?:de la |de l'|des |du |de |d'|par )|fan\s+(?:de la |de l'|des |du |de |d')|adepte\s+(?:de la |de l'|des |du |de |d')|pratique\s+(?:la |le |l'|les |du |de la ))\s*([^.;,]{3,70})/giu;
+    let hobM, hobN = 0;
+    while ((hobM = hobRe.exec(om)) && hobN++ < 2) {
+      hobM[1].split(/\s+et\s+(?:de la |de l'|des |du |de |d'|la |le |les |l')?|\s*,\s*/).map(x => x.trim().replace(/^(?:la |le |les |l')/i, '')).filter(x => x.length >= 3 && x.split(/\s+/).length <= 3).forEach(tok => {
+        const k = norm(tok);
+        if (STOPN.indexOf(k) >= 0 || SYN_JOB[k] || SYN_TRAIT[k] || /^(?:tout|rien|ca|cela|ce|son|sa|ses|leur|mais|aussi|plus|moins)\b/.test(k)) return;
+        const stem = k.replace(/s$/, '');
+        if (loisirs.some(l => { const ln = norm(l); return ln.indexOf(stem) >= 0 || stem.indexOf(ln) >= 0; })) return;
+        if (loisirs.length < 6) loisirs.push(cap(tok));
+      });
+    }
     if (loisirs.length) { v.loisirs = Array.from(new Set(loisirs)).slice(0, 6); note('Loisirs : ' + v.loisirs.join(', ').toLowerCase()); }
 
     /* motivation, secret, événement marquant */
@@ -567,7 +585,7 @@ window.LDV_DESCRIBE = (function () {
       if (/enfance|jeunesse|a grandi|(?<![a-z])grandi|adolescen|(?<![a-z])ado(?![a-z])/.test(n0)) return 'enfance';
       if (/tout le temps|toujours|sans arret|en permanence|chaque (?:jour|matin|soir)|habitude|ne quitte jamais|jamais sans/.test(n0)) return 'manies';
       if (/etude|diplom|universit|(?<![a-z])fac(?![a-z])|(?<![a-z])ecole(?![a-z])|formation|licence|master|apprenti|stage|carriere|boulot|a travaille|licenci|embauch|reconvert/.test(n0)) return 'parcours';
-      if (/outil|logiciel|(?<![a-z])code(?![a-z])|coder|programm|pirat|hack|bidouill|invente|developpe|cre(?:e|er|ent|es)(?![a-z])/.test(n0)) return 'actuel';
+      if (/outil|logiciel|(?<![a-z])code(?![a-z])|coder|programm|pirat|hack|bidouill|invente|developp(?:e|es|ent|er)(?![a-z])|cre(?:e|er|ent|es)(?![a-z])/.test(n0)) return 'actuel';
       if (/en ce moment|actuellement|maintenant|ces temps-ci/.test(n0)) return 'actuel';
       return null;
     };

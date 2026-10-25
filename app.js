@@ -96,11 +96,12 @@
       metier: metierTxt(v.metier, f),
       logement: lc(v.logement) || 'dans un petit logement',
       hobby: COH.np(disp(first, f)) || 'la musique',
-      il, Il: cap(il), e: { f: 'e', m: '' }[f],
+      il, Il: cap(il), e: { f: 'e', m: '' }[f], ne: { f: 'ne', m: '' }[f], se: { f: 'se', m: '' }[f],
       qu_il: { f: "qu'elle", m: "qu'il" }[f],
       s_il: { f: 'si elle', m: "s'il" }[f]
     };
-    return tpl.replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m));
+    // « un café de Ocean Beach » devient « d'Ocean Beach »
+    return tpl.replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m)).replace(/(^|\s)([Dd])e ([AEIOUYÉÈÀÂÎÔÛ])/g, "$1$2'$3");
   }
   // une origine est un pays, « Américain » ou une ville de GTA. Pour « Américain » et les villes, une origine familiale cachée
   // (herit : « Latino-américaines »...) choisit les prénoms, les noms et les traits physiques
@@ -158,6 +159,26 @@
     };
   }
 
+  // l'enfance, le parcours et la vie actuelle viennent de la chronologie du personnage (life.js)
+  const lifeOne = (key, c) => {
+    try {
+      const cur = String(c.v[key] || '').replace(/\s+/g, ' ').trim();
+      let t = '';
+      for (let i = 0; i < 6; i++) { t = window.LDV_LIFE.field(key, c, disp, form(c), W(), 1, Math.floor(Math.random() * 1e6))[0] || ''; if (!t || t !== cur) break; }
+      if (t) window.LDV_LIFE.mark(c, key, t);
+      return t;
+    } catch (e) { return ''; }
+  };
+  const lifeTexts = new Set();
+  const lifeHooks = (c, n) => { try { return window.LDV_LIFE.hooks(c, disp, form(c), W(), n, Math.floor(Math.random() * 1e6)); } catch (e) { return []; } };
+  // un événement marquant plausible pour l'âge, le métier, la situation et ce qui est déjà écrit
+  function lifeEvent(c) {
+    const labels = cwords('evenement', c, D.EVENEMENTS.concat(ipool('evenement')), 8);
+    const base = labels.length ? labels : D.EVENEMENTS;
+    let sc;
+    try { sc = window.LDV_LIFE.eventScores(c, disp, form(c), W(), base).filter(x => x[1] > 0); } catch (e) { sc = []; }
+    return sc.length ? wpick(sc) : pick(base);
+  }
   // les choix peuvent dépendre de l'univers : opts est alors une fonction
   const optsOf = d => (typeof d.opts === 'function' ? d.opts() : d.opts).map(o => (typeof o === 'string' ? { v: o } : o));
   const W = () => store.world;
@@ -176,7 +197,7 @@
   // choix cohérents avec la fiche (âge, métier, goûts, origine) : voir coherence.js
   const cpick = (key, c, base, n) => COH.pick(key, c, base, n, W() === 'gta');
   const cone = (key, c, base) => cpick(key, c, base, 1)[0] || pick(base.length ? base : ['']);
-  const cwords = (key, c, base, n) => COH.words(key, c, base, n, W() === 'gta');
+  const cwords = (key, c, base, n) => COH.words(key, c, base, n, W() === 'gta').map(x => (typeof x === 'string' && x.indexOf('{') >= 0 ? fill(x, c) : x));
   // tous les métiers possibles pour ce personnage, notés par coherence.js : courants d'abord, adaptés à l'âge, au lieu et aux goûts
   function jobPool(c, withIdeas) {
     // des intitulés simples (« Mécanicien », « Infirmier »), sans employeur ni lieu ; les listes précises ne servent qu'à reconnaître une description
@@ -203,14 +224,30 @@
     if (v.taille > 188) mine.push('Tiny'); else if (v.taille && v.taille < 162) mine.push('Shorty');
     return { mine: Array.from(new Set(mine)), pool: ipool('surnom') };
   }
+  const NUM_YEARS = /(?:^|\s)(?:\d+|un|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|dix-sept|dix-huit|dix-neuf|vingt|trente)\s+ans(?![a-zé])/i;
+  const FAMILY_WORDS = /(?:^|\s)(?:père|mère|parents?|frères?|sœurs?|grands?-(?:père|mère|parents)|famille|beau-père|belle-mère|oncle|tante|cousins?)(?![a-zé])/i;
+  // un texte de banque qui parle d'âges précis ou (pour l'enfance) de la famille pourrait contredire la chronologie du personnage
+  const bankSafe = (key, t) => !NUM_YEARS.test(t) && !(key === 'enfance' && FAMILY_WORDS.test(t));
+  const lifeIdeas = (key, c) => {
+    try { return window.LDV_LIFE.field(key, c, disp, form(c), W(), 6, Math.floor(Math.random() * 1e6), !!String(c.v[key] || '').trim()).map(t => { lifeTexts.add(t); return { t, w: 40, own: true }; }); } catch (e) { return []; }
+  };
   // les idées d'un champ : celles de l'univers du personnage d'abord (poids fort), puis les générales, sans ce qui contredit la fiche
   function ideaPoolFor(key, c) {
     const d = F[key], ville = c.v.ville || '';
     // les métiers liés à un lieu ne vont qu'aux personnages qui y vivent
     if (key === 'metier') return ipool(key).filter(j => D.jobFits(j, ville)).map(t => ({ t, w: 1 }));
-    const items = COH.candidates(key, c, ipool(key), W() === 'gta').items;
-    if (d.t === 'area') return items.map(x => ({ t: (key === 'accroches' ? '• ' : '') + fill(x.t, c), w: x.w, own: x.own }));
-    return items;
+    let items = COH.candidates(key, c, ipool(key), W() === 'gta').items;
+    if (key === 'evenement') {
+      let sc = new Map();
+      try { sc = new Map(window.LDV_LIFE.eventScores(c, disp, form(c), W(), items.map(x => x.t))); } catch (e) { /* sans filtre */ }
+      return items.map(x => ({ t: x.t, w: x.w * (sc.has(x.t) ? sc.get(x.t) : 1), own: x.own })).filter(x => x.w > 0);
+    }
+    if (d.t === 'area') {
+      const mine = ['enfance', 'parcours', 'actuel'].indexOf(key) >= 0 ? lifeIdeas(key, c) : key === 'accroches' ? lifeHooks(c, 8).map(t => ({ t: '• ' + t, w: 40, own: true })) : [];
+      const bank = items.filter(x => ['enfance', 'parcours', 'actuel'].indexOf(key) < 0 || bankSafe(key, x.t)).map(x => ({ t: (key === 'accroches' ? '• ' : '') + fill(x.t, c), w: x.w, own: x.own }));
+      return mine.concat(bank);
+    }
+    return items.map(x => (x && typeof x.t === 'string' && x.t.indexOf('{') >= 0 ? Object.assign({}, x, { t: fill(x.t, c) }) : x));
   }
   // tire n idées neuves : celles déjà présentes dans le champ et celles déjà montrées sont écartées tant qu'il en reste
   function makeIdeas(key, c, avoid) {
@@ -253,6 +290,7 @@
         const cur = (c.v[key] || '').trim(), sep = key === 'accroches' || key === 'notes' ? '\n' : ' ';
         c.v[key] = cur ? cur + sep + item : item;
       } else c.v[key] = item;
+      if (d.t === 'area' && lifeTexts.has(item) && c.v[key] === item) window.LDV_LIFE.mark(c, key, item);
       delete ui.ideas[key];
     }
     changed(key);
@@ -281,7 +319,7 @@
     metier: {
       t: 'text', label: 'Métier ou occupation', ph: 'Infirmière', list: 'metiers', max: 70, w: 'half',
       // choix pondéré : métiers courants, adaptés à l'âge et au lieu, puis aux goûts de la fiche (voir coherence.js)
-      gen: (c, bulk) => pickJob(c, 1, null, !!bulk)[0] || pick(D.METIERS)
+      gen: (c, bulk) => ((c.v.age || 30) < 18 ? 'Lycéen|Lycéenne' : pickJob(c, 1, null, !!bulk)[0] || pick(D.METIERS))
     },
     affiliation: {
       t: 'chips', label: 'Affiliation', opts: D.AFFILIATIONS, custom: true, world: 'gta',
@@ -297,15 +335,16 @@
       t: 'chips', label: 'Situation amoureuse', opts: D.SITUATIONS, custom: true,
       gen: c => {
         const a = c.v.age || 30;
+        if (a < 18) return pick(['Célibataire', 'Célibataire', 'Célibataire', 'En couple', "C'est compliqué"]);
         if (a < 22 && Math.random() < 0.7) return 'Célibataire';
-        return pick(D.SITUATIONS.filter(s => !((/^Veuf/.test(s) && a < 40) || (/^Divorcé/.test(s) && a < 25) || (/^(Marié|Fiancé)/.test(s) && a < 20))));
+        return pick(D.SITUATIONS.filter(s => !((/^Veuf/.test(s) && a < 40) || (/^(Divorcé|Séparé)/.test(s) && a < 25) || (/^(Marié|Fiancé)/.test(s) && a < 20))));
       }
     },
     logement: {
       t: 'chips', label: 'Logement', opts: logementList, custom: true,
       gen: c => {
         const a = c.v.age || 30;
-        const list = a < 22 ? ['Chez ses parents', 'En résidence universitaire', 'En colocation', 'Dans un studio']
+        const list = a < 18 ? ['Chez ses parents'] : a < 22 ? ['Chez ses parents', 'En résidence universitaire', 'En colocation', 'Dans un studio']
           : logementList().filter(l => l !== 'En résidence universitaire' && (a < 30 ? Math.random() < 0.25 || l !== 'Chez ses parents' : l !== 'Chez ses parents'));
         return cwords('logement', c, list, 1)[0] || pick(list);
       }
@@ -336,21 +375,40 @@
     manies: { t: 'area', label: 'Habitudes et manies', rows: 2, ph: 'Les petits détails qui le rendent vivant.', gen: c => cpick('manies', c, D.MANIES.concat(ipool('manies')), 2).map(s => fill(s, c)).join(' ') },
     secret: { t: 'area', label: 'Secret', rows: 2, ph: 'Ce que personne ne sait. Il apparaît dans la fiche exportée.', gen: c => fill(cone('secret', c, D.SECRETS.concat(ipool('secret'))), c) },
 
-    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', gen: c => fill(cone('enfance', c, D.ENFANCES.concat(ipool('enfance'))), c) },
-    parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => fill(cone('parcours', c, D.PARCOURS.concat(ipool('parcours'))), c) },
-    evenement: { t: 'chips', label: 'Événement marquant', opts: D.EVENEMENTS, custom: true, gen: c => cwords('evenement', c, D.EVENEMENTS.concat(ipool('evenement')), 1)[0] || pick(D.EVENEMENTS) },
-    actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => fill(cone('actuel', c, D.ACTUELS.concat(ipool('actuel'))), c) },
-    accroches: { t: 'area', label: 'Accroches de RP', rows: 4, ph: 'Ce qui permet à un autre personnage de l\'aborder ou de l\'entraîner dans son histoire.', gen: c => cpick('accroches', c, D.ACCROCHES.concat(ipool('accroches')), 3).map(s => '• ' + fill(s, c)).join('\n') },
+    enfance: { t: 'area', label: 'Origines et enfance', rows: 4, ph: 'Où et comment a-t-il ou elle grandi ?', gen: c => lifeOne('enfance', c) || fill(cone('enfance', c, D.ENFANCES.concat(ipool('enfance'))), c) },
+    parcours: { t: 'area', label: 'Études et parcours', rows: 3, ph: 'Les étapes qui l\'ont mené où il ou elle en est.', gen: c => lifeOne('parcours', c) || fill(cone('parcours', c, D.PARCOURS.concat(ipool('parcours'))), c) },
+    evenement: { t: 'chips', label: 'Événement marquant', opts: D.EVENEMENTS, custom: true, gen: c => lifeEvent(c) },
+    actuel: { t: 'area', label: 'Aujourd\'hui', rows: 3, ph: 'Sa vie en ce moment.', gen: c => lifeOne('actuel', c) || fill(cone('actuel', c, D.ACTUELS.concat(ipool('actuel'))), c) },
+    accroches: { t: 'area', label: 'Accroches de RP', rows: 4, ph: 'Ce qui permet à un autre personnage de l\'aborder ou de l\'entraîner dans son histoire.', gen: c => {
+      // deux accroches tirées de la fiche (métier, passion, proches, passé), puis une des banques d'idées
+      const mine = lifeHooks(c, 2), rest = cpick('accroches', c, D.ACCROCHES.concat(ipool('accroches')), 3 - mine.length);
+      return mine.concat(rest.map(s => fill(s, c))).map(s => '• ' + s).join('\n');
+    } },
     notes: { t: 'area', label: 'Notes libres', rows: 3, ph: 'Tout ce qui ne rentre pas ailleurs.', gen: c => fill(cone('notes', c, ipool('notes')), c) },
 
     rel: {
       t: 'rel', label: 'Relations',
       gen: c => {
-        const first = pick(['Famille', 'Ami·e', 'Partenaire']);
-        return [first].concat(pickN(D.LIENS.filter(l => l !== first), 2)).map(lien => {
-          const o = lien === 'Famille' ? pool(c) : pick(D.ORIGINES);
-          const nom = lien === 'Famille' && c.v.nom ? disp(c.v.nom, form(c)) : pick(o.noms);
-          return { nom: pick(o.f.concat(o.m)) + ' ' + nom, lien, note: fill(cone('relnote', c, D.NOTES_REL.concat(ipool('relnote'))), c) };
+        const SAFE = { Partenaire: ['Garde un œil sur {prenom}.', 'Est au courant de ses secrets.', 'Se sont connus un soir de match, au bar du coin.'], Famille: ['Se téléphonent tous les dimanches.', 'Garde un œil sur {prenom}.', 'Est au courant de ses secrets.'], Ex: ['Ne se parlent plus depuis une dispute.', 'Se croisent encore de temps en temps.'], 'Ami·e': ['Se voient chaque semaine autour d\'un verre.', 'Se connaissent depuis le lycée.', 'Est au courant de ses secrets.'], Collègue: ['Se voient chaque semaine autour d\'un verre.', 'Garde un œil sur {prenom}.'], Mentor: ['Garde un œil sur {prenom}.', 'Se téléphonent tous les dimanches.'] };
+        let plan = [];
+        try { plan = window.LDV_LIFE.relPlan(c, disp, form(c), W()); } catch (e) { plan = []; }
+        if (!plan.length) {
+          const first = pick(['Famille', 'Ami·e', 'Partenaire']);
+          return [first].concat(pickN(D.LIENS.filter(l => l !== first), 2)).map(lien => {
+            const o = lien === 'Famille' ? pool(c) : pick(D.ORIGINES);
+            const nom = lien === 'Famille' && c.v.nom ? disp(c.v.nom, form(c)) : pick(o.noms);
+            return { nom: pick(o.f.concat(o.m)) + ' ' + nom, lien, note: fill(cone('relnote', c, D.NOTES_REL.concat(ipool('relnote'))), c) };
+          });
+        }
+        return plan.map(p => {
+          const o = p.fam ? pool(c) : pick(D.ORIGINES);
+          const firsts = p.sex === 'f' ? o.f : p.sex === 'm' ? o.m : o.f.concat(o.m);
+          let nom = p.fam && c.v.nom ? disp(c.v.nom, form(c)) : pick(o.noms);
+          const fn1 = pick(firsts);
+          for (let t = 0; t < 8 && nom.toLowerCase() === fn1.toLowerCase(); t++) nom = pick(o.noms);
+          let note = p.note;
+          if (SAFE[p.lien] && Math.random() < 0.5 && !/Se connaissent|Rencontr|Un /.test(p.note)) note += ' ' + fill(pick(SAFE[p.lien]), c);
+          return { nom: fn1 + ' ' + nom, lien: p.lien, note };
         });
       }
     }
@@ -379,7 +437,7 @@
     { id: 'fiche', short: 'Fiche', title: 'Fiche', color: '--l6', lede: 'Relis, copie, partage.', groups: [] }
   ];
   STEPS.forEach(st => { st.fields = st.groups.reduce((acc, g) => acc.concat(g.keys), []); });
-  const ORDER = ['genre', 'ville', 'origine', 'prenom', 'nom', 'age', 'metier', 'affiliation', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'enfance', 'parcours', 'evenement', 'actuel', 'accroches', 'rel', 'surnom'];
+  const ORDER = ['genre', 'ville', 'origine', 'prenom', 'nom', 'age', 'metier', 'affiliation', 'situation', 'logement', 'taille', 'corpulence', 'look', 'style', 'signes', 'attitude', 'traits', 'qualites', 'defauts', 'peurs', 'loisirs', 'motivation', 'manies', 'secret', 'rel', 'evenement', 'enfance', 'parcours', 'actuel', 'accroches', 'surnom'];
 
   /* ---------- modèle et stockage ---------- */
   // background : parties affichées (on), textes par partie (t). Les textes des parties masquées sont gardés.
@@ -391,7 +449,7 @@
 
   function blank() {
     return {
-      id: newId(), created: Date.now(), updated: Date.now(), example: false, locks: {}, rel: [], photo: { src: '' }, bg: { on: [], t: {}, seen: false },
+      id: newId(), seed: Math.floor(Math.random() * 2147483647), lg: {}, created: Date.now(), updated: Date.now(), example: false, locks: {}, rel: [], photo: { src: '' }, bg: { on: [], t: {}, seen: false },
       v: { av_coupe: 'court', av_peau: 2, av_cheveux: 2, av_yeux: 1, av_pilo: 'non', av_lunettes: 'non', av_taches: 'non' }
     };
   }
@@ -421,6 +479,8 @@
     if (c.v.origine && D.legacyOrigin(c.v.origine)) { c.v.herit = c.v.origine; c.v.origine = D.NATIONS[0].v; }
     ensureHerit(c);
     // les champs qui viennent de la description de départ (le reste a été complété au hasard)
+    if (raw && Number.isInteger(raw.seed) && raw.seed >= 0) c.seed = raw.seed;
+    if (raw && raw.lg && typeof raw.lg === 'object') ['enfance', 'parcours', 'actuel'].forEach(k => { if (Number.isInteger(raw.lg[k])) c.lg[k] = raw.lg[k]; });
     c.summaryAI = str(raw && raw.summaryAI, 400).replace(/\s+/g, ' ').trim();
     c.described = Array.isArray(raw && raw.described) ? raw.described.filter(k => typeof k === 'string' && k in F).slice(0, 40) : [];
     const rb = raw && raw.bg;
@@ -452,6 +512,7 @@
         if (!x) return;
         const c = clean(x);
         c.id = id; c.created = x.created || 0; c.updated = x.updated || 0; c.example = !!x.example;
+        if (!(x && Number.isInteger(x.seed) && x.seed >= 0)) c.seed = window.LDV_LIFE.hash(id) % 2147483647;
         store.chars[id] = c; store.order.push(id);
       });
       store.cur = store.chars[s.cur] ? s.cur : store.order[0] || null;
@@ -944,22 +1005,31 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
     // les champs compris sont verrouillés le temps de tirer le reste au sort, pour ne jamais les contredire
     Object.keys(r.v).forEach(k => { if (F[k] && F[k].gen && k.indexOf('av_') !== 0) n.locks[k] = true; });
     if (n.rel.length) n.locks.rel = true;
-    genKeys(n, ORDER);
-    // proches cités sans nom (« son père », « sa mère ») : on leur donne un nom de la famille
+    n.v.notes = ('Description de départ : ' + text).slice(0, 1500);
+    n.described = Object.keys(r.v);
+    const iRel = ORDER.indexOf('rel');
+    genKeys(n, ORDER.slice(0, iRel + 1));
+    // proches cités sans nom (« son père », « sa mère ») : on leur donne un nom de la famille, jamais deux fois le même prénom
+    const taken = new Set([String(disp(n.v.prenom, form(n))).toLowerCase()].concat(n.rel.filter(r => r.nom).map(r => String(r.nom).split(' ')[0].toLowerCase())));
     n.rel.forEach(x => {
       if (x.nom) return;
       const pl = pool(n), male = x.role === 'pere' || x.role === 'frere' || x.role === 'grand-pere' || x.role === 'fils';
-      x.nom = pick(male ? pl.m : pl.f) + ' ' + (n.v.nom ? disp(n.v.nom, form(n)) : pick(pl.noms));
+      let fn = pick(male ? pl.m : pl.f);
+      for (let t = 0; t < 12 && taken.has(String(fn).toLowerCase()); t++) fn = pick(male ? pl.m : pl.f);
+      taken.add(String(fn).toLowerCase());
+      x.nom = fn + ' ' + (n.v.nom ? disp(n.v.nom, form(n)) : pick(pl.noms));
     });
     // une description sans gang ne fait entrer personne dans un gang : seule l'affiliation du métier (police, secours) est reprise
     if (W() === 'gta' && !r.v.affiliation) {
       const hit = n.v.metier && !/^(?:Étudiant|Alternant|Retrait)/.test(disp(n.v.metier, 'm')) && D.AFFIL_DE_METIER.find(x => x[0].test(disp(n.v.metier, 'm')));
       n.v.affiliation = hit ? hit[1] : '';
     }
+    // la suite (enfance, parcours, vie actuelle...) s'écrit une fois la fiche connue
+    genKeys(n, ORDER.slice(iRel + 1));
     Object.keys(r.v).forEach(k => { if (k.indexOf('av_') === 0) n.v[k] = r.v[k]; });
     n.v.notes = ('Description de départ : ' + text).slice(0, 1500);
     // dernière vérification : longueurs et types de chaque champ, comme pour un import
-    const fin = clean({ v: n.v, rel: n.rel, described: Object.keys(r.v) });
+    const fin = clean({ v: n.v, rel: n.rel, described: Object.keys(r.v), seed: n.seed, lg: n.lg });
     fin.example = false; fin.updated = Date.now();
     if (reuse) { fin.id = cur.id; fin.created = cur.created; store.chars[cur.id] = fin; ui.step = 0; } else addChar(fin);
     // ce qui n'était pas dans la phrase et a été tiré au sort
@@ -1406,7 +1476,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
         const k = b.dataset.k;
         const had = (c.bg.t[k] || '').trim();
         if (had) ui.bgPrev[c.id + k] = c.bg.t[k];
-        c.bg.t[k] = k === 'libre' ? (had ? had + '\n\n' : '') + BG.anecdote(c, disp, form(c), W()).slice(0, 1500) : bgOne(c, k);
+        c.bg.t[k] = k === 'libre' ? (had ? had + '\n\n' : '') + BG.anecdote(c, disp, form(c), W()).slice(0, 1500) : bgOne(c, k, had);
         bgChanged('[data-act="bgRoll"][data-k="' + k + '"]'); break;
       }
       case 'bgUndo': {
@@ -1559,7 +1629,7 @@ ${full ? `<footer class="idc-mrz" aria-hidden="true">${esc(mrz(c)).replace('\n',
 
   /* ---------- Background : rédiger l'histoire d'un personnage ---------- */
   const bgHas = c => c.bg.on.some(k => (c.bg.t[k] || '').trim());
-  const bgOne = (c, k) => BG.section(k, c, disp, form(c), W()).text;
+  const bgOne = (c, k, avoid) => { let t = ''; for (let i = 0; i < 8; i++) { t = BG.section(k, c, disp, form(c), W()).text; if (!avoid || t !== avoid) break; } return t; };
   // affiche les parties de la liste et rédige celles qui n'ont pas encore de texte ; les autres textes sont gardés
   function bgSetPlan(c, keys) {
     c.bg.on = BG_ALL.filter(k => keys.indexOf(k) >= 0 || (k === 'libre' && c.bg.on.indexOf('libre') >= 0));

@@ -22,7 +22,7 @@ window.LDV_COH = (function () {
     const job = jobText(v.metier) + ' ' + flat(v.metier), jobAll = job + ' ' + flat(v.affiliation);
     const texts = [v.enfance, v.parcours, v.actuel, v.notes, v.motivation, v.manies, v.secret, v.accroches, v.signes, v.attitude].map(flat).join(' ');
     const likes = [].concat(arr(v.traits), arr(v.loisirs), arr(v.qualites), arr(v.style)).map(flat).join(' ') + ' ' + texts + ' ' + flat(v.origine) + ' ' + flat(v.herit);
-    const student = /etudiant|alternant/.test(job), retired = /retrait/.test(job) || (!job && age >= 68);
+    const student = /etudiant|alternant|lyceen/.test(job), retired = /retrait/.test(job) || (!job && age >= 68);
     const precaire = /petits boulots|sans emploi|chomage|reconversion|combines/.test(job);
     // themesJob : ce que le personnage est (métier, affiliation, statut, origine) ; ses goûts ne colorent que les détails
     const themesJob = new Set(), themes = new Set();
@@ -32,12 +32,15 @@ window.LDV_COH = (function () {
     if (precaire) themesJob.add('precaire');
     if (gta && /cayo perico/.test(flat(v.origine) + ' ' + flat(v.herit) + ' ' + texts)) themesJob.add('ile');
     themesJob.forEach(id => themes.add(id));
+    const upscale = /avocat|juge|notaire|medecin|dentiste|pharmaci|chirurgi|pilote de ligne|banqui|ingenieu|architect|chef d'entreprise|psycholog|veterinaire/.test(job) || /rockford hills|vinewood hills|richman|burton|vice point|algonquin/.test(flat(v.ville));
+    const married = /marie|en couple|fiance/.test(flat(v.situation));
     const state = flat([v.enfance, v.parcours, v.actuel, v.notes, v.logement].join(' '));
     const poor = precaire || /pauvrete|modeste|fins de mois|sans le sou|debrouill|precarit|dettes?/.test(state);
     const rich = /villa|penthouse|manoir|fortune|riche|yacht|duplex d'alta/.test(flat(v.logement) + ' ' + state) && !poor;
     return {
       age, minor: age < 18, student, retired, precaire, poor, rich, themes, themesJob, gta: !!gta,
       noJob: !job || /sans emploi|reconversion|chomage|vit de/.test(job),
+      upscale, married,
       single: /celibataire/.test(flat(v.situation)),
       kids: (c.rel || []).some(r => /^(?:son fils|sa fille)/i.test(r.note || '')),
       villeRaw: v.ville || ''
@@ -64,7 +67,7 @@ window.LDV_COH = (function () {
   const ADULT = /casino|poker|alcool|\bbars?\b|bartender|cellule|prison|armee|militaire|divorc|veuf|veuve|licenci|faillite|cartel|braq|trafic|\bgang|ballas|vagos|families|mafia|\bmarie|mariage|epou|hypotheque|patron|employeur|salaire|\{metier\}/;
   const YOUNG_ONLY = /skate|parachut|escalade|tuning|courses? de rue|karting|caisses a savon|musculation|surf\b|retrogaming|hockey|danser dans les clubs/;
   // univers qu'on ne propose qu'à ceux qui les ont : le vocabulaire des listes de base qui ne vaut que pour eux
-  const GATE = [[/(?:^|\s)geek|bidouill|paranoiaque numerique|programmation|hacking|montage de pc|electronique et bidouillage|\(ctf\)|reparer des consoles|bricolage electronique|perdre toutes ses donnees|repere\S* en ligne|panne de courant|devant ses ecrans|patience devant un ecran|cle usb/, 'it']];
+  const GATE = [[/police|commissariat|enquete|inspecteur/, 'police'], [/decrocher un role|film tourne|scenario/, 'artiste'], [/garage de son pere|atelier de son pere/, 'atelier'], [/qui l'a balance/, 'rue'], [/(?:^|\s)geek|bidouill|paranoiaque numerique|programmation|hacking|montage de pc|electronique et bidouillage|\(ctf\)|reparer des consoles|bricolage electronique|perdre toutes ses donnees|repere\S* en ligne|panne de courant|devant ses ecrans|patience devant un ecran|cle usb/, 'it']];
   const gated = (t, p) => { const n = norm(t); return GATE.some(g => g[0].test(n) && !p.themes.has(g[1])); };
 
   function veto(raw, p, key) {
@@ -80,6 +83,10 @@ window.LDV_COH = (function () {
     if (/\{metier\}/.test(t) && (p.student || p.noJob)) return true;
     if (p.student && /promotion|collegues|patron|\bbureau\b|licenci|embauch|salaire|carriere|reconvers|heures sup|\bcontrat/.test(t) && key !== 'relnote') return true;
     if (p.retired && /promotion|carriere|stage\b|diplome|premiere maison|ouvrir (?:son|un)|se faire un nom|premier job|premier poste|dettes? d'etudes/.test(t)) return true;
+    if (key === 'logement' && /plein desert/.test(t) && !/sandy shores|harmony|grapeseed|blaine|paleto/.test(norm(p.villeRaw))) return true;
+    if ((p.kids || p.married) && key === 'secret' && /appartement vide|rentrer dans un appartement|vit seul|seul chez|personne ne l'attend/.test(t)) return true;
+    if (p.upscale && p.age >= 28 && key === 'logement' && /mobile home|caravane|motel|colocation|residence universitaire|chez ses parents|chez un proche|studio|sous-sol/.test(t)) return true;
+    if ((p.kids || p.married) && key === 'motivation' && /(?:se construire|fonder|avoir) une famille|trouver l'amour|rencontrer quelqu'un|se marier|premier enfant|trouver quelqu'un/.test(t)) return true;
     if (p.kids && key === 'logement' && /studio|colocation|motel|canape|sans fenetre|toit|caravane|bateau|chez ses parents|grenier|entrepot|residence/.test(t)) return true;
     if (!p.student && /universitaire|residence etudiante|campus|dortoir/.test(t)) return true;
     if (!p.student && p.age >= 26 && /partiels|bourse d'etudes/.test(t)) return true;
@@ -198,7 +205,7 @@ window.LDV_COH = (function () {
   }
   // âge minimum et maximum d'un métier (les études et l'ancienneté, le physique)
   const J_MIN = [[/medecin|chirurg|avocat|juge|pharmac|dentiste|veterinaire|psycholog|ingenieu|notaire/, 27], [/pilote de ligne|pilote a los santos|commissaire|detective|inspecteu|ranger|proprietaire|gerant/, 25], [/polic|adjoint|highway|pompier|ambulan|infirm|enseignant|professeu|comptable|journalist|assistant juridique|kinesi|service social|bibliothec|pilote|marketing|educateu|coach/, 22]];
-  const J_MAX = [[/cascad|pompier|bucheron/, 52], [/polic|adjoint|highway|ranger|ambulan|ouvrier|livreu|camionneu|conducteu|depann/, 62], [/pilote de ligne/, 65]];
+  const J_MAX = [[/militaire|soldat|garde du corps/, 58], [/cascad|pompier|bucheron/, 52], [/polic|adjoint|highway|ranger|ambulan|ouvrier|livreu|camionneu|conducteu|depann/, 62], [/pilote de ligne/, 65]];
   function jobAgeFactor(n, age) {
     if (/etudiant|alternant/.test(n)) return age <= 19 ? 28 : age <= 21 ? 25 : age <= 23 ? 14 : age <= 25 ? 6 : age <= 28 ? 2.2 : age <= 32 ? 0.5 : age <= 40 ? 0.05 : 0;
     if (/retrait/.test(n)) return age >= 68 ? 60 : age >= 65 ? 25 : age >= 62 ? 6 : age >= 60 ? 1.5 : 0;
